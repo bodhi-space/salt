@@ -1184,6 +1184,7 @@ def delete_route_table(route_table_id=None, route_table_name=None,
         else:
             log.info('Waiting for Route Table {0} to disappear...'.format(
                     route_table_name or route_table_id))
+            time.sleep(5)
 
 def delete_security_group():
     pass
