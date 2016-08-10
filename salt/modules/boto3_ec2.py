@@ -1217,6 +1217,7 @@ def delete_subnet(subnet_id=None, subnet_name=None,
         else:
             log.info('Waiting for Subnet {0} to disappear...'.format(
                     subnet_name or subnet_id))
+            time.sleep(5)
 
 
 def delete_tags(resources, tags):
