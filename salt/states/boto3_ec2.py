@@ -519,7 +519,7 @@ def route_table_present(name, vpc_id=None, vpc_name=None, routes=None,
         ret['result'] = r['result']
         if ret['result'] is False:
             return ret
-    r = _routes_present(name=name, routes=routes, tags=tags,
+    r = _routes_present(name=name, routes=routes, vpc_id=vpc_id, tags=tags,
                         region=region, key=key, keyid=keyid, profile=profile)
     ret['changes'] = dictupdate.update(ret['changes'], r['changes'])
     ret['comment'] = ' '.join([ret['comment'], r['comment']])
@@ -609,8 +609,8 @@ def _route_table_by_name(name, region=None, key=None, keyid=None, profile=None):
     return route_tables[0]
 
 
-def _routes_present(name, routes, tags=None, region=None, key=None,
-                    keyid=None, profile=None):
+def _routes_present(name, routes, vpc_id, tags=None,
+                    region=None, key=None, keyid=None, profile=None):
     ret = {'name': name,
            'result': True,
            'comment': '',
@@ -706,8 +706,8 @@ def _routes_present(name, routes, tags=None, region=None, key=None,
                 _r['nat_gateway_id'] = r[0]['NatGatewayId']
             if i.get('vpc_peering_connection_name'):
                 _vpcn = i['vpc_peering_connection_name']
-                r = __salt__['boto3_ec2.get_resource_id'](
-                        name=_vpcn, resource_type='vpc-peering-connection',
+                r = __salt__['boto3_ec2.describe_vpc_peering_connections'](
+                        tags={'Name': _vpcn}, requester_vpc_info_vpc_id=vpc_id,
                         region=region, key=key, keyid=keyid, profile=profile)
                 if 'error' in r:
                     msg = ('Error looking up id for VPC peering connection '
@@ -715,12 +715,15 @@ def _routes_present(name, routes, tags=None, region=None, key=None,
                     ret['comment'] = msg
                     ret['result'] = False
                     return ret
-                if r.get('id') is None:
-                    msg = 'VPC peering connection {0} does not exist.'.format(_vpcn)
-                    ret['comment'] = msg
+                if len(r) < 1:
+                    ret['comment'] = 'VPC peering connection {0} does not exist.'.format(_vpcn)
                     ret['result'] = False
                     return ret
-                _r['vpc_peering_connection_id'] = r['id']
+                if len(r) > 1:
+                    ret['comment'] = 'Multiple VPC peering connections found with name {0}'.format(_vcpn)
+                    ret['result'] = False
+                    return ret
+                _r['vpc_peering_connection_id'] = r[0]['VpcPeeringConnectionId']
             if i.get('instance_name'):
                 running_states = ('pending', 'rebooting', 'running', 'stopping', 'stopped')
                 r = __salt__['boto_ec2.get_id'](name=i['instance_name'], region=region,

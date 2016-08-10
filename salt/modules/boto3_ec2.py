@@ -119,10 +119,11 @@ def _dict_to_aws_tags(dictionary):
     return [{'Key': k, 'Value': v} for k, v in dictionary]
 
 
-def _build_filters(accept, env, key='Name', tags=None):
+def _build_filters(accept, env, key='Name', tags=None, filters=None):
     filts = []
     filts += _opts_to_filter(accept, env, key)
     filts += _tags_to_filter(tags)
+    filts += _filters_to_filter(filters)
     return filts
 
 
@@ -200,6 +201,18 @@ def _tags_to_filter(tags):
         else:
             raise SaltInvocationError('Invalid tags param passed, must be '
                                       'either a {dict} or [list].')
+    return filts
+
+
+def _filters_to_filter(filters, key='Name'):
+    # Convert **args into Filters=[{k:v}, ...] format based on an accept list
+    filts = []
+    if filters is not None:
+        for k, v in filters.iteritems():
+            if v in [True, False]:
+                v = '{0}'.format(v).lower()  # AWS expects JSON-ish string bools
+            filts += [{key: '{0}'.format(k), 'Values': v if isinstance(v, list)
+                      else ['{0}'.format(v)]}] if v is not None else []
     return filts
 
 
@@ -1722,15 +1735,15 @@ def describe_subnets(availability_zone=None, available_ip_address_count=None,
 
 
 def describe_tags(resource_id=None, resource_type=None, tags=None,
-                  tag_key=None, tag_value=None, region=None, key=None,
-                  keyid=None, profile=None):
+                  tag_key=None, tag_value=None, filters=None, region=None,
+                  key=None, keyid=None, profile=None):
     # NOTE:  Tags can be passed around as either {k:v, ...} or [{k:v}, ...]
     # On a single resource, tag keys are unique and thus it's safe (and
     # preferred) to use simple {k:v, ...}.  When describing tags across multiple
     # resources, this is not the case, and thus the more obtuse AWS semantics of
     # [{k:v}, ...] must needs be used.
     opts = ['resource-id', 'resource-type', 'tag-key', 'tag-value']
-    filts = _build_filters(opts, locals(), tags=tags)
+    filts = _build_filters(opts, locals(), tags=tags, filters=filters)
     args = {'MaxResults': 1000, 'NextToken': '', 'Filters': filts}
     try:
         conn = _get_conn(region=region, key=key, keyid=keyid, profile=profile)
@@ -1771,8 +1784,84 @@ def describe_vpc_endpoints():
     pass
 
 
-def describe_vpc_peering_connections():
-    pass
+def describe_vpc_peering_connections(accepter_vpc_info_cidr_block=None, accepter_vpc_info_owner_id=None,
+                                     accepter_vpc_info_vpc_id=None, expiration_time=None,
+                                     requester_vpc_info_cidr_block=None, requester_vpc_info_owner_id=None,
+                                     requester_vpc_info_vpc_id=None, requester_vpc_info_vpc_name=None,
+                                     status_code=None, status_message=None, tags=None, tag_key=None,
+                                     tag_value=None, vpc_peering_connection_id=None, region=None,
+                                     key=None, keyid=None, profile=None):
+    '''
+    Note that any of these options can accept a [list of strings] or singleton string value.
+
+    accepter_vpc_info_cidr_block
+        CIDR block of the peer VPC.
+
+    accepter_vpc_info_owner_id
+        AWS account ID of the owner of the peer VPC.
+
+    accepter_vpc_info_vpc_id
+        ID of the peer VPC.
+
+    expiration_time
+        expiration date and time for the VPC peering connection.
+
+    requester_vpc_info_cidr_block
+        CIDR block of the requester's VPC.
+
+    requester_vpc_info_owner_id
+        AWS account ID of the owner of the requester VPC.
+
+    requester_vpc_info_vpc_id
+        ID of the requester VPC.  Exclusive with requester_vpc_info_vpc_name
+
+    requester_vpc_info_vpc_name
+        Name tag of the requester VPC.  Exclusive with requester_vpc_info_vpc_id
+
+    status_code
+        status of the VPC peering connection (pending-acceptance | failed | expired | provisioning | active | deleted | rejected ).
+
+    status_message
+        message that provides more information about the status of the VPC peering connection, if applicable.
+
+    tags
+        dict of tags (e.g. key:value) pairs to use in matching the resource.
+
+    tag_key
+        key of a tag assigned to the resource. This filter is independent of the tag_value filter. For example, if you use both the filter "tag_key=Purpose" and the filter "tag_value=X", you get any resources assigned both the tag key Purpose (regardless of what the tag's value is), and the tag value X (regardless of what the tag's key is). If you want to list only resources where Purpose is X, see the tags param.
+
+    tag_value
+        value of a tag assigned to the resource. This filter is independent of the tag-key filter.
+
+    vpc_peering_connection_id
+        ID of the VPC peering connection.
+    '''
+    if requester_vpc_info_vpc_name and requester_vpc_info_vpc_id:
+        raise SaltInvocationError('At most one of requester_vpc_info_vpc_name or '
+                                  'requester_vpc_info_vpc_id:may be provided.')
+    if requester_vpc_info_vpc_name is not None:
+        r = get_resource_id(name=requester_vpc_info_vpc_name, resource_type='vpc',
+                              region=region, key=key, keyid=keyid, profile=profile)
+        if 'error' in r:
+            return {'success': False, 'error': r['error']}
+        if 'id' not in r:
+            log.info(r)
+            return {'success': False, 'error': "Couldn't resolve VPC name {0} "
+                                               "to ID".format(requester_vpc_info_vpc_name)}
+        requester_vpc_info_vpc_id = r['id']
+
+    opts = ['accepter-vpc-info.cidr-block', 'accepter-vpc-info.owner-id',
+            'accepter-vpc-info.vpc-id', 'expiration-time', 'requester-vpc-info.cidr-block',
+            'requester-vpc-info.owner-id', 'requester-vpc-info.vpc-id', 'status-code',
+            'status-message', 'vpc-peering-connection-id']
+    filts = _build_filters(opts, locals(), tags=tags)
+    args = {'Filters': filts} if filts else {}
+    try:
+        conn = _get_conn(region=region, key=key, keyid=keyid, profile=profile)
+        r = conn.describe_vpc_peering_connections(**args)
+        return r['VpcPeeringConnections']
+    except ClientError as e:
+        return {'error': salt.utils.boto3.get_error(e)}
 
 
 def describe_vpcs(cidr=None, dhcp_options_id=None, isDefault=True, state=None,
@@ -1903,10 +1992,10 @@ def get_password_data():
     pass
 
 
-def get_resource_id(name, resource_type=None,
+def get_resource_id(name, resource_type=None, filters=None,
                     region=None, key=None, keyid=None, profile=None):
     tags = {'Name': name}
-    r = describe_tags(resource_type=resource_type, tags=tags,
+    r = describe_tags(resource_type=resource_type, tags=tags, filters=filters,
                       region=region, key=key, keyid=keyid, profile=profile)
     if 'error' in r:
         return r
