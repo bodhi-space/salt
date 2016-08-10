@@ -715,7 +715,7 @@ def _routes_present(name, routes, tags=None, region=None, key=None,
                     ret['comment'] = msg
                     ret['result'] = False
                     return ret
-                if r['id'] is None:
+                if r.get('id') is None:
                     msg = 'VPC peering connection {0} does not exist.'.format(_vpcn)
                     ret['comment'] = msg
                     ret['result'] = False
@@ -732,7 +732,6 @@ def _routes_present(name, routes, tags=None, region=None, key=None,
                     ret['result'] = False
                     return ret
                 _r['instance_id'] = r
-
 
             want_routes.append(_r)
 
