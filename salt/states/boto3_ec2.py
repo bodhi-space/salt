@@ -706,9 +706,11 @@ def _routes_present(name, routes, vpc_id, tags=None,
                 _r['nat_gateway_id'] = r[0]['NatGatewayId']
             if i.get('vpc_peering_connection_name'):
                 _vpcn = i['vpc_peering_connection_name']
+                good_peering_states = ['pending-acceptance', 'provisioning', 'active']
                 r = __salt__['boto3_ec2.describe_vpc_peering_connections'](
                         tags={'Name': _vpcn}, requester_vpc_info_vpc_id=vpc_id,
-                        region=region, key=key, keyid=keyid, profile=profile)
+                        status_code=good_peering_states, region=region, key=key, keyid=keyid,
+                        profile=profile)
                 if 'error' in r:
                     msg = ('Error looking up id for VPC peering connection '
                            '{0}: {1}'.format(_vpcn, r['error']))
@@ -720,7 +722,7 @@ def _routes_present(name, routes, vpc_id, tags=None,
                     ret['result'] = False
                     return ret
                 if len(r) > 1:
-                    ret['comment'] = 'Multiple VPC peering connections found with name {0}'.format(_vcpn)
+                    ret['comment'] = 'Multiple VPC peering connections found with name {0}'.format(_vpcn)
                     ret['result'] = False
                     return ret
                 _r['vpc_peering_connection_id'] = r[0]['VpcPeeringConnectionId']
