@@ -28,7 +28,7 @@
 %bcond_with    docs
 
 Name:           salt
-Version:        hs1.0.19
+Version:        2017.7.0.hs1.0.20
 Release:        1
 Epoch:          1000
 Summary:        A parallel remote execution system
