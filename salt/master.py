@@ -1693,12 +1693,7 @@ class ClearFuncs(object):
                                        message='Authentication failure of type "token" occurred.'))
 
             # Authorize
-            if self.opts['keep_acl_in_token'] and 'auth_list' in token:
-                auth_list = token['auth_list']
-            else:
-                clear_load['eauth'] = token['eauth']
-                clear_load['username'] = token['name']
-                auth_list = self.loadauth.get_auth_list(clear_load)
+            auth_list = self.loadauth.get_auth_list(clear_load, token)
 
             if not self.ckminions.runner_check(auth_list, clear_load['fun']):
                 return dict(error=dict(name='TokenAuthenticationError',
@@ -1762,12 +1757,7 @@ class ClearFuncs(object):
                                        message='Authentication failure of type "token" occurred.'))
 
             # Authorize
-            if self.opts['keep_acl_in_token'] and 'auth_list' in token:
-                auth_list = token['auth_list']
-            else:
-                clear_load['eauth'] = token['eauth']
-                clear_load['username'] = token['name']
-                auth_list = self.loadauth.get_auth_list(clear_load)
+            auth_list = self.loadauth.get_auth_list(clear_load, token)
             if not self.ckminions.wheel_check(auth_list, clear_load['fun']):
                 return dict(error=dict(name='TokenAuthenticationError',
                                        message=('Authentication failure of type "token" occurred for '
@@ -1888,12 +1878,7 @@ class ClearFuncs(object):
                 return ''
 
             # Get acl
-            if self.opts['keep_acl_in_token'] and 'auth_list' in token:
-                auth_list = token['auth_list']
-            else:
-                extra['eauth'] = token['eauth']
-                extra['username'] = token['name']
-                auth_list = self.loadauth.get_auth_list(extra)
+            auth_list = self.loadauth.get_auth_list(extra, token)
 
             # Authorize the request
             if not self.ckminions.auth_check(
