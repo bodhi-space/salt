@@ -99,7 +99,11 @@ Requires:       python27-msgpack > 0.3
 Requires:       python27-psutil
 Requires:       python27-requests >= 1.0.0
 Requires:       python27-tornado >= 4.2.1
-Requires:       python27-yaml
+%if 0%{?amzn}
+Requires:  python27-PyYAML
+%else
+Requires:  python27-yaml
+%endif
 Requires:       python27-crypto >= 2.6.1
 Requires:       python27-zmq >= 2.2.0
 Requires:       python27-mako
