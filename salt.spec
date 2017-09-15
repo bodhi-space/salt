@@ -29,7 +29,7 @@
 
 Name:           salt
 Version:        %{_version}
-Release:        2%{?dist}
+Release:        1%{?dist}
 Epoch:          1000
 Summary:        A parallel remote execution system
 License:        Apache-2.0
