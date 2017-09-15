@@ -28,8 +28,8 @@
 %bcond_with    docs
 
 Name:           salt
-Version:        2017.7.0.hs1.0.25
-Release:        1
+Version:        %{_version}
+Release:        2%{?dist}
 Epoch:          1000
 Summary:        A parallel remote execution system
 License:        Apache-2.0
@@ -57,7 +57,7 @@ BuildRequires:  python27-ioflo >= 1.1.7
 BuildRequires:  python27-raet >= 0.6.0
 %endif
 # requirements/zeromq.txt
-BuildRequires:  python27-pycrypto >= 2.6.1
+BuildRequires:  python27-crypto >= 2.6.1
 BuildRequires:  python27-zmq >= 2.2.0
 %if %{with test}
 # requirements/dev_python27.txt
@@ -96,7 +96,7 @@ Requires:       python27-psutil
 Requires:       python27-requests >= 1.0.0
 Requires:       python27-tornado >= 4.2.1
 Requires:       python27-yaml
-Requires:       python27-pycrypto >= 2.6.1
+Requires:       python27-crypto >= 2.6.1
 Requires:       python27-zmq >= 2.2.0
 Requires:       python27-mako
 Requires:       python27-netaddr
