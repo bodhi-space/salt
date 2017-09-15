@@ -49,7 +49,11 @@ BuildRequires:  python27-msgpack > 0.3
 BuildRequires:  python27-psutil
 BuildRequires:  python27-requests >= 1.0.0
 BuildRequires:  python27-tornado >= 4.2.1
+%if 0%{?amzn}
+BuildRequires:  python27-PyYAML
+%else
 BuildRequires:  python27-yaml
+%endif
 %if %{with raet}
 # requirements/raet.txt
 BuildRequires:  python27-libnacl >= 1.0.0
