@@ -220,6 +220,10 @@ def get_connection(service, module=None, region=None, key=None, keyid=None,
         if conn is None:
             raise SaltInvocationError('Region "{0}" is not '
                                       'valid.'.format(region))
+        # This let's us get at useful methods and attrs on the parent session
+        # object, such as session.region_name, which gives us the bound region
+        # even if we've e.g. authenticated via IAM ...
+        conn.session_handle = session
     except boto.exception.NoAuthHandlerFound:
         raise SaltInvocationError('No authentication credentials found when '
                                   'attempting to make boto {0} connection to '
@@ -338,7 +342,17 @@ def get_role_arn(name, region=None, key=None, keyid=None, profile=None):
     return 'arn:aws:iam::{0}:role/{1}'.format(account_id, name)
 
 
-def ordered(obj):
+def ordered(obj, json_once=False):
+    '''
+    Recursively sort an object to permit equality testing for things (such as AWS Policies) which
+    store, but don't actually CARE ABOUT, sequences as ordered lists.  Optionally parse the initial
+    input as a string-serialized JSON object, if json_once is True and the input looks "stringy".
+    '''
+    if json_once and isinstance(obj, six.string_types):
+        try:
+            obj = json.loads(obj)
+        except ValueError:  ## Oops, wasn't serialized JSON after all...
+            pass
     if isinstance(obj, (list, tuple)):
         return sorted(ordered(x) for x in obj)
     elif isinstance(obj, dict):
@@ -348,7 +362,8 @@ def ordered(obj):
     return obj
 
 
-def json_objs_equal(left, right):
-    """ Compare two parsed JSON objects, given non-ordering in JSON objects
-    """
-    return ordered(left) == ordered(right)
+def json_objs_equal(left, right, try_json=False):
+    '''
+    Compare two (possibly string-serialized) JSON objects, by de-serializing and re-ordering as needed...
+    '''
+    return ordered(left, json_once=try_json) == ordered(right, json_once=try_json)
