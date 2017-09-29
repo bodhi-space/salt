@@ -366,7 +366,7 @@ install -Dd -m 0750 %{buildroot}%{_sysconfdir}/salt/minion.d
 install -Dd -m 0750 %{buildroot}%{_sysconfdir}/salt/cloud.maps.d
 install -Dd -m 0750 %{buildroot}%{_sysconfdir}/salt/cloud.profiles.d
 install -Dd -m 0750 %{buildroot}%{_sysconfdir}/salt/cloud.providers.d
-install -Dd -m 0755 %{buildroot}%{_localstatedir}/log/salt
+install -Dd -m 0750 %{buildroot}%{_localstatedir}/log/salt
 install -Dd -m 0755 %{buildroot}%{_sysconfdir}/logrotate.d/
 install -Dd -m 0755 %{buildroot}%{_sbindir}
 install -Dd -m 0750 %{buildroot}%{_localstatedir}/log/salt
@@ -748,8 +748,8 @@ systemd-tmpfiles --create /usr/lib/tmpfiles.d/salt.conf || true
 #
 %dir %attr(0750, root, salt) %{_sysconfdir}/salt
 %dir %attr(0750, root, salt) %{_sysconfdir}/salt/pki
-%dir %attr(0755, root, salt) %{_localstatedir}/log/salt
-%dir %attr(0755, root, salt) %{_localstatedir}/cache/salt
+%dir %attr(0750, root, salt) %{_localstatedir}/log/salt
+%dir %attr(0750, root, salt) %{_localstatedir}/cache/salt
 %dir %attr(0750, root, salt) /srv/spm
 %if %{with systemd}
 /usr/lib/tmpfiles.d/salt.conf
