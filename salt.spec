@@ -749,7 +749,7 @@ systemd-tmpfiles --create /usr/lib/tmpfiles.d/salt.conf || true
 %dir %attr(0750, root, salt) %{_sysconfdir}/salt
 %dir %attr(0750, root, salt) %{_sysconfdir}/salt/pki
 %dir %attr(0755, root, salt) %{_localstatedir}/log/salt
-%dir %attr(0750, root, salt) %{_localstatedir}/cache/salt
+%dir %attr(0755, root, salt) %{_localstatedir}/cache/salt
 %dir %attr(0750, root, salt) /srv/spm
 %if %{with systemd}
 /usr/lib/tmpfiles.d/salt.conf
