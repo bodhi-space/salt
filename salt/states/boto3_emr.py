@@ -96,6 +96,9 @@ XXX FIXME
 from __future__ import absolute_import
 import logging
 
+# Import salty bits
+from salt.exceptions import CommandExecutionError
+
 log = logging.getLogger(__name__)
 
 
