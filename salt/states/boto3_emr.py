@@ -332,7 +332,7 @@ def job_flow_present(name, wait=900, region=None, key=None, keyid=None, profile=
     try:
         current = __salt__['boto3_emr.describe_cluster'](name=name, region=region, key=key,
                 keyid=keyid, profile=profile, aws_session_token=aws_session_token,
-                botocore_session=botocore_session, aws_profile=aws_profile, **d_args))
+                botocore_session=botocore_session, aws_profile=aws_profile, **d_args)
     except CommandExecutionError as e:
         current = None
     if current:
@@ -346,7 +346,7 @@ def job_flow_present(name, wait=900, region=None, key=None, keyid=None, profile=
 
     new = __salt__['boto3_emr.create_cluster'](name, wait=wait, region=region, key=key,
             keyid=keyid, profile=profile, aws_session_token=aws_session_token,
-            botocore_session=botocore_session, aws_profile=aws_profile, **args))
+            botocore_session=botocore_session, aws_profile=aws_profile, **args)
 
     if new:
         ret['comment'] = 'Cluster {0} was created.'.format(name)
@@ -446,7 +446,7 @@ def job_flow_absent(name, wait=600, region=None, key=None, keyid=None, profile=N
 
     new = __salt__['boto3_emr.delete_clusters'](name=name, wait=wait, region=region, key=key,
             keyid=keyid, profile=profile, aws_session_token=aws_session_token,
-            botocore_session=botocore_session, aws_profile=aws_profile, **args))
+            botocore_session=botocore_session, aws_profile=aws_profile, **args)
     if new:
         ret['comment'] = 'Job Flow / Cluster `{0}` ({0}) terminated.'.format(name, jfid)
         ret['changes']['old'] = current
