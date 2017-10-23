@@ -108,7 +108,8 @@ except ImportError:
 # I've seen all of these in the wild, depending on my botocore version.
 RETRY_ON = ('Throttling', 'ThrottlingException', 'RequestLimitExceeded',
             'Unavailable', 'ServiceUnavailable', 'InternalFailure', 'InternalError')
-
+# AWS AWI states we consider "running" for our purposes...
+RUNNING = ['STARTING', 'BOOTSTRAPPING', 'RUNNING', 'WAITING']
 
 def __virtual__():
     '''
@@ -135,7 +136,6 @@ def _collect_results(func, info_node, args, marker='Marker'):
     retries = 30
     while Marker is not None:
         try:
-            log.info('calling: {0}({1})'.format(func.func_name, args))
             r = func(**args)
             sub = r.get(info_node) if info_node else r
             if isinstance(sub, list):
@@ -147,11 +147,12 @@ def _collect_results(func, info_node, args, marker='Marker'):
         except botocore.exceptions.ParamValidationError as e:
             raise SaltInvocationError(str(e))
         except botocore.exceptions.ClientError as e:
-            if e.error_code not in RETRY_ON:
+            err = __utils__['boto3.get_error'](e)
+            if err['code'] not in RETRY_ON:
                 log.error('Error calling {0}({1}): {2}'.format(func.func_name, args, e))
                 return None
             if retries:
-                log.debug('Transient error ({0}) from API, will retry in 5 seconds'.format(e.error_code))
+                log.debug('Transient error ({0}) from API, will retry in 5 seconds'.format(err['code']))
                 retries -= 1
                 time.sleep(5)
                 continue
@@ -173,18 +174,8 @@ def _list_resource(name=None, name_param=None, res_type=None, info_node=None,
         f = getattr(conn, func)
     except (AttributeError, KeyError) as e:
         raise SaltInvocationError("No function '{0}()' found: {1}".format(func, str(e)))
-    if name_param and name_param not in args:  # Honor explicitly passed value
-        if name:
-            if name.startswith('j-'):  # It's a ClusterId / JobFlowId
-                args.update({name_param: name})
-            else:
-                args.update({name_param: get_cluster_id(name=name, conn=conn, region=region, key=key,
-                        keyid=keyid, profile=profile, aws_session_token=aws_session_token,
-                        botocore_session=botocore_session, aws_profile=aws_profile)})
-    else:
-        # Undocumented, but you can't pass 'Marker' if searching for a specific resource...
-        args.update({'Marker': ''})
-    args = dict([(k, v) for k, v in args.items() if not k.startswith('_')])
+    args.update({name_param: name}) if name and name_param and name_param not in args else args.update({'Marker': ''})
+    args = {k: v for k, v in args.items() if not k.startswith('_')}
     return _collect_results(f, info_node, args)
 
 
@@ -201,18 +192,8 @@ def _describe_resource(name=None, name_param=None, res_type=None, info_node=None
         f = getattr(conn, func)
     except (AttributeError, KeyError) as e:
         raise SaltInvocationError("No function '{0}()' found: {1}".format(func, str(e)))
-    if name_param and name_param not in args:  # Honor explicitly passed value
-        if name:
-            if name.startswith('j-'):  # It's a ClusterId / JobFlowId
-                args.update({name_param: name})
-            else:
-                args.update({name_param: get_cluster_id(name=name, conn=conn, region=region, key=key,
-                        keyid=keyid, profile=profile, aws_session_token=aws_session_token,
-                        botocore_session=botocore_session, aws_profile=aws_profile)})
-    else:
-        # Undocumented, but you can't pass 'Marker' if searching for a specific resource...
-        args.update({'Marker': ''})
-    args = dict([(k, v) for k, v in args.items() if not k.startswith('_')])
+    args.update({name_param: name}) if name and name_param and name_param not in args else args.update({'Marker': ''})
+    args = {k: v for k, v in args.items() if not k.startswith('_')}
     return _collect_results(f, info_node, args)
 
 
@@ -229,12 +210,10 @@ def _delete_resource(name, name_param, desc, res_type, wait=0, status_param=None
                      aws_session_token=aws_session_token, botocore_session=botocore_session,
                      aws_profile=aws_profile, test_func='list_clusters')
     if name_param in args:
-        log.debug("'name: {0}' param being overridden by explicitly provided "
-                 "'{1}: {2}'".format(name, name_param, args[name_param]))
         name = args[name_param]
     else:
         args[name_param] = name
-    args = dict([(k, v) for k, v in args.items() if not k.startswith('_')])
+    args = {k: v for k, v in args.items() if not k.startswith('_')}
     try:
         func = 'delete_'+res_type
         f = getattr(conn, func)
@@ -280,12 +259,10 @@ def _create_resource(name, name_param=None, desc=None, res_type=None, wait=0, st
                      aws_session_token=aws_session_token, botocore_session=botocore_session,
                      aws_profile=aws_profile, test_func='list_clusters')
     if name_param in args:
-        log.debug("'name: {0}' param being overridden by explicitly provided "
-                 "'{1}: {2}'".format(name, name_param, args[name_param]))
         name = args[name_param]
     else:
         args[name_param] = name
-    args = dict([(k, v) for k, v in args.items() if not k.startswith('_')])
+    args = {k: v for k, v in args.items() if not k.startswith('_')}
     try:
         func = 'create_'+res_type
         f = getattr(conn, func)
@@ -332,12 +309,10 @@ def _modify_resource(name, name_param=None, desc=None, res_type=None, wait=0, st
                      aws_session_token=aws_session_token, botocore_session=botocore_session,
                      aws_profile=aws_profile, test_func='list_clusters')
     if name_param in args:
-        log.debug("'name: {0}' param being overridden by explicitly provided "
-                 "'{1}: {2}'".format(name, name_param, args[name_param]))
         name = args[name_param]
     else:
         args[name_param] = name
-    args = dict([(k, v) for k, v in args.items() if not k.startswith('_')])
+    args = {k: v for k, v in args.items() if not k.startswith('_')}
     try:
         func = 'modify_'+res_type
         f = getattr(conn, func)
@@ -371,7 +346,7 @@ def _modify_resource(name, name_param=None, desc=None, res_type=None, wait=0, st
         return False
 
 
-def run_job_flow(name=None, wait=600, region=None, key=None, keyid=None, profile=None,
+def run_job_flow(name=None, wait=0, region=None, key=None, keyid=None, profile=None,
                  aws_session_token=None, botocore_session=None, aws_profile=None,
                  **args):
     '''
@@ -553,49 +528,90 @@ def run_job_flow(name=None, wait=600, region=None, key=None, keyid=None, profile
                      aws_session_token=aws_session_token, botocore_session=botocore_session,
                      aws_profile=aws_profile, test_func='list_clusters')
     args.update({'Name': name}) if name and 'Name' not in args else None
-    args = dict([(k, v) for k, v in args.items() if not k.startswith('_')])
+    args = {k: v for k, v in args.items() if not k.startswith('_')}
+    ## <UGH!>
+    sn = args.get('Instances', {}).get('Ec2SubnetId')
+    sns = args.get('Instances', {}).get('Ec2SubnetIds', [])
+    if sn and not sn.startswith('subnet-'):
+        try:
+            args['Instances']['Ec2SubnetId'] = _get_subnet_id(name=sn, region=region, key=key,
+                    keyid=keyid, profile=profile, aws_session_token=aws_session_token,
+                    botocore_session=botocore_session, aws_profile=aws_profile)
+        except CommandExecutionError as e:
+            log.error(str(e))
+            return False
+    new_sns = []
+    for sn in sns:
+        if sn.startswith('subnet-'):
+            new_sns += [sn]
+        else:
+            try:
+                snid = _get_subnet_id(name=sn, region=region, key=key, keyid=keyid, profile=profile,
+                        aws_session_token=aws_session_token, botocore_session=botocore_session,
+                        aws_profile=aws_profile)
+            except CommandExecutionError as e:
+                log.error(str(e))
+                return False
+            new_sns += [snid]
+    if new_sns:
+        args['Instances']['Ec2SubnetIds'] = new_sns
+    for a in ('EmrManagedMasterSecurityGroup',
+              'EmrManagedSlaveSecurityGroup',
+              'ServiceAccessSecurityGroup'):
+        if args['Instances'].get(a) and not args['Instances'][a].startswith('sg-'):
+            try:
+                args['Instances'][a] = _get_sg_id(name=args['Instances'][a], region=region, key=key,
+                        keyid=keyid, profile=profile, aws_session_token=aws_session_token,
+                        botocore_session=botocore_session, aws_profile=aws_profile)
+            except CommandExecutionError as e:
+                log.error(str(e))
+                return False
+    ## </UGH!>
     retries = 30
     while True:
         try:
             ret = conn.run_job_flow(**args)
             break
         except botocore.exceptions.ClientError as e:
-            if e.error_code not in RETRY_ON:
-                log.error('Error running job flow {0}: {1}'.format(name, e))
-                return None
+            err = __utils__['boto3.get_error'](e)
+            if err['code'] not in RETRY_ON:
+                log.error('Error running job flow {0}: {1}'.format(args['Name'], e))
+                return False
             if retries:
-                log.debug('Transient error ({0}) from API, will retry in 5 seconds'.format(e.error_code))
+                log.debug('Transient error ({0}) from API, will retry in 5 seconds'.format(err['code']))
                 retries -= 1
                 time.sleep(5)
                 continue
-            log.error('Too many API retries while running job flow {0}.'.format(name))
-            return None
+            log.error('Too many API retries while running Job Flow {0}.'.format(name))
+            return False
     # Note that for historical reasons, a JobFlowId is the same as a ClusterId...
     ClusterId = ret.get('JobFlowId')
     if not ClusterId:
-        log.error('Error running job flow {0}:  No ClusterId found'.format(name))
-        return None
+        log.error('Error running Job Flow / Cluster `{0}`: No ClusterId found'.format(args['Name']))
+        return False
     if not wait:
         return describe_cluster(ClusterId=ClusterId, conn=conn)
-    log.info('Waiting up to {0} seconds for cluster {1} to become ready.'.format(wait, name))
+    log.info('Waiting up to {0} seconds for Job Flow / Cluster `{1}` ({2}) to become ready.'.format(
+            wait, args['Name'], ClusterId))
     orig_wait = wait
     while wait > 0:
-        r = describe_cluster(ClusterId=ClusterId, conn=conn)
+        r = describe_cluster(ClusterId=ClusterId, conn=conn, ClusterStates=[])
         state = r.get('Status', {}).get('State')
         if state in ('STARTING', 'BOOTSTRAPPING'):
             sleep = wait if wait % 60 == wait else 60
-            log.info('Sleeping {0} seconds for cluster {1} to become ready.'.format(sleep, name))
+            log.info('Sleeping {0} seconds for Job Flow / Cluster `{1}` to become ready.  '
+                     'Current state: {2}'.format(sleep, args['Name'], state))
             time.sleep(sleep)
             wait -= sleep
             continue
-        elif state in ('TERMINATED_WITH_ERRORS',):
-            reason = r.get('StateChangeReason', {}).get('Message')
-            log.error('Cluster {0} terminated with errors:  {1}'.format(name, reason))
-            return None
+        elif state in ('TERMINATED', 'TERMINATED_WITH_ERRORS',):
+            reason = r.get('Status', {}).get('StateChangeReason', {}).get('Message')
+            log.error('Job Flow / Cluster `{0}` terminated:  {1}'.format(args['Name'], reason))
+            return False
         else:  # All other states imply success of some sort or another...
             return r
-    log.error('Cluster {0} not ready after {1} seconds.'.format(name, orig_wait))
-    return None
+    log.error('Cluster {0} not ready after {1} seconds.'.format(args['Name'], orig_wait))
+    return False
 
 
 def create_cluster(*args, **kwargs):
@@ -606,9 +622,32 @@ def create_cluster(*args, **kwargs):
     return run_job_flow(*args, **kwargs)
 
 
+def get_cluster_ids(name, conn=None, region=None, key=None, keyid=None, profile=None,
+                    aws_session_token=None, botocore_session=None, aws_profile=None,
+                    **args):
+    '''
+    Given the name of a cluster, return the ClusterIds of any clusters with that Name tag.
+    If a ClusterId is passed in, return it unchanged.
+
+    Example:
+
+    .. code-block:: bash
+
+        salt myminion boto3_emr.get_cluster_ids my_emr_cluster
+    '''
+    ret = list_clusters(conn=conn, region=region, key=key, keyid=keyid, profile=profile,
+                        aws_session_token=aws_session_token, botocore_session=botocore_session,
+                        aws_profile=aws_profile, **args)
+    if not ret or not isinstance(ret, list):
+        msg = 'No cluster found with Name `{0}`'.format(name)
+        log.info(msg)
+        return []
+    return [n['Id'] for n in ret if name in (n['Id'], n['Name'])]
+
+
 def list_bootstrap_actions(name=None, conn=None, region=None, key=None, keyid=None, profile=None,
                            aws_session_token=None, botocore_session=None, aws_profile=None,
-                           **args):
+                           ClusterStates=RUNNING, **args):
     '''
     Return details about the Bootstrap Actions associated with a given cluster
 
@@ -616,40 +655,31 @@ def list_bootstrap_actions(name=None, conn=None, region=None, key=None, keyid=No
 
     .. code-block:: bash
 
-        salt myminion boto3_emr.list_clusters
+        salt myminion boto3_emr.list_bootstrap_actions my_emr_cluster
     '''
-    return _list_resource(name=name, name_param='ClusterId', res_type='bootstrap_actions', info_node='BootstrapActions',
-                          conn=conn, region=region, key=key, keyid=keyid, profile=profile,
-                          aws_session_token=aws_session_token, botocore_session=botocore_session, aws_profile=aws_profile,
-                          **args)
-
-
-def get_cluster_id(name, conn=None, region=None, key=None, keyid=None, profile=None,
-                   aws_session_token=None, botocore_session=None, aws_profile=None,
-                   **args):
-    '''
-    Given the name of a cluster, return its Id.
-
-    Example:
-
-    .. code-block:: bash
-
-        salt myminion boto3_emr.get_cluster_id my_emr_cluster
-    '''
-    ret =  list_clusters(conn=conn, region=region, key=key, keyid=keyid, profile=profile,
-                         aws_session_token=aws_session_token, botocore_session=botocore_session, aws_profile=aws_profile,
-                         **args)
-    if isinstance(ret, list):
-        r = [n['Id'] for n in ret if n['Name'] == name]
-        if len(r) == 1:
-            return r[0]
-        if len(r) > 1:
-            msg = 'More than one cluster found with Name `{0}` -- {1}'.format(name, r)
+    name_param = 'ClusterId'
+    if name_param in args:
+        name = args[name_param]
+    else:
+        args[name_param] = name
+    if name:
+        clids = get_cluster_ids(name=name, conn=conn, region=region, key=key, keyid=keyid,
+                                profile=profile, aws_session_token=aws_session_token,
+                                botocore_session=botocore_session, aws_profile=aws_profile,
+                                ClusterStates=ClusterStates)
+        if not clids:
+            msg = 'No resource found with Name {0}'.format(name)
             log.error(msg)
-            raise CommandExecutionError(msg)
-    msg = 'No cluster found with Name `{0}`'.format(name)
-    log.error(msg)
-    raise CommandExecutionError(msg)
+            return None
+        if len(clids) > 1:
+            msg = 'Multiple resources found with Name {0}: {1}'.format(name, clids)
+            log.error(msg)
+            return None
+        args.update({name_param: clids[0]})
+    return _list_resource(name=name, name_param=name_param, res_type='bootstrap_actions',
+                          info_node='BootstrapActions', conn=conn, region=region, key=key,
+                          keyid=keyid, profile=profile, aws_session_token=aws_session_token,
+                          botocore_session=botocore_session, aws_profile=aws_profile, **args)
 
 
 def list_clusters(conn=None, region=None, key=None, keyid=None, profile=None,
@@ -664,15 +694,16 @@ def list_clusters(conn=None, region=None, key=None, keyid=None, profile=None,
 
         salt myminion boto3_emr.list_clusters
     '''
-    return _list_resource(res_type='clusters', info_node='Clusters',
-                          conn=conn, region=region, key=key, keyid=keyid, profile=profile,
-                          aws_session_token=aws_session_token, botocore_session=botocore_session, aws_profile=aws_profile,
-                          **args)
+    args.update({'ClusterStates': RUNNING}) if 'ClusterStates' not in args else None
+    return _list_resource(res_type='clusters', info_node='Clusters', conn=conn, region=region,
+                          key=key, keyid=keyid, profile=profile,
+                          aws_session_token=aws_session_token, botocore_session=botocore_session,
+                          aws_profile=aws_profile, **args)
 
 
 def list_instance_fleets(name=None, conn=None, region=None, key=None, keyid=None, profile=None,
                          aws_session_token=None, botocore_session=None, aws_profile=None,
-                         **args):
+                         ClusterStates=RUNNING, **args):
     '''
     Return details about all Instance Fleets associated with a given cluster
 
@@ -682,15 +713,34 @@ def list_instance_fleets(name=None, conn=None, region=None, key=None, keyid=None
 
         salt myminion boto3_emr.list_clusters
     '''
-    return _list_resource(name=name, name_param='ClusterId', res_type='instance_fleets', info_node='InstanceFleets',
-                          conn=conn, region=region, key=key, keyid=keyid, profile=profile,
-                          aws_session_token=aws_session_token, botocore_session=botocore_session, aws_profile=aws_profile,
-                          **args)
+    name_param = 'ClusterId'
+    if name_param in args:
+        name = args[name_param]
+    else:
+        args[name_param] = name
+    if name:
+        clids = get_cluster_ids(name=name, conn=conn, region=region, key=key, keyid=keyid,
+                                profile=profile, aws_session_token=aws_session_token,
+                                botocore_session=botocore_session, aws_profile=aws_profile,
+                                ClusterStates=ClusterStates)
+        if not clids:
+            msg = 'No resource found with Name {0}'.format(name)
+            log.error(msg)
+            return None
+        if len(clids) > 1:
+            msg = 'Multiple resources found with Name {0}: {1}'.format(name, clids)
+            log.error(msg)
+            return None
+        args.update({name_param: clids[0]})
+    return _list_resource(name=name, name_param=name_param, res_type='instance_fleets',
+                          info_node='InstanceFleets', conn=conn, region=region, key=key,
+                          keyid=keyid, profile=profile, aws_session_token=aws_session_token,
+                          botocore_session=botocore_session, aws_profile=aws_profile, **args)
 
 
 def list_instance_groups(name=None, conn=None, region=None, key=None, keyid=None, profile=None,
                          aws_session_token=None, botocore_session=None, aws_profile=None,
-                         **args):
+                         ClusterStates=RUNNING, **args):
     '''
     Return details about all Instance Groups associated with a given cluster
 
@@ -700,15 +750,34 @@ def list_instance_groups(name=None, conn=None, region=None, key=None, keyid=None
 
         salt myminion boto3_emr.list_clusters
     '''
-    return _list_resource(name=name, name_param='ClusterId', res_type='instance_groups', info_node='InstanceGroups',
-                          conn=conn, region=region, key=key, keyid=keyid, profile=profile,
-                          aws_session_token=aws_session_token, botocore_session=botocore_session, aws_profile=aws_profile,
-                          **args)
+    name_param = 'ClusterId'
+    if name_param in args:
+        name = args[name_param]
+    else:
+        args[name_param] = name
+    if name:
+        clids = get_cluster_ids(name=name, conn=conn, region=region, key=key, keyid=keyid,
+                                profile=profile, aws_session_token=aws_session_token,
+                                botocore_session=botocore_session, aws_profile=aws_profile,
+                                ClusterStates=ClusterStates)
+        if not clids:
+            msg = 'No resource found with Name {0}'.format(name)
+            log.error(msg)
+            return None
+        if len(clids) > 1:
+            msg = 'Multiple resources found with Name {0}: {1}'.format(name, clids)
+            log.error(msg)
+            return None
+        args.update({name_param: clids[0]})
+    return _list_resource(name=name, name_param=name_param, res_type='instance_groups',
+                          info_node='InstanceGroups', conn=conn, region=region, key=key,
+                          keyid=keyid, profile=profile, aws_session_token=aws_session_token,
+                          botocore_session=botocore_session, aws_profile=aws_profile, **args)
 
 
 def list_instances(name=None, conn=None, region=None, key=None, keyid=None, profile=None,
                    aws_session_token=None, botocore_session=None, aws_profile=None,
-                   **args):
+                   ClusterStates=RUNNING, **args):
     '''
     Return details about all Instances associated with a given cluster
 
@@ -718,10 +787,29 @@ def list_instances(name=None, conn=None, region=None, key=None, keyid=None, prof
 
         salt myminion boto3_emr.list_clusters
     '''
-    return _list_resource(name=name, name_param='ClusterId', res_type='instances', info_node='Instances',
+    name_param = 'ClusterId'
+    if name_param in args:
+        name = args[name_param]
+    else:
+        args[name_param] = name
+    if name:
+        clids = get_cluster_ids(name=name, conn=conn, region=region, key=key, keyid=keyid,
+                                profile=profile, aws_session_token=aws_session_token,
+                                botocore_session=botocore_session, aws_profile=aws_profile,
+                                ClusterStates=ClusterStates)
+        if not clids:
+            msg = 'No resource found with Name {0}'.format(name)
+            log.error(msg)
+            return None
+        if len(clids) > 1:
+            msg = 'Multiple resources found with Name {0}: {1}'.format(name, clids)
+            log.error(msg)
+            return None
+        args.update({name_param: clids[0]})
+    return _list_resource(name=name, name_param=name_param, res_type='instances', info_node='Instances',
                           conn=conn, region=region, key=key, keyid=keyid, profile=profile,
-                          aws_session_token=aws_session_token, botocore_session=botocore_session, aws_profile=aws_profile,
-                          **args)
+                          aws_session_token=aws_session_token, botocore_session=botocore_session,
+                          aws_profile=aws_profile, **args)
 
 
 def list_security_configurations(conn=None, region=None, key=None, keyid=None, profile=None,
@@ -738,13 +826,13 @@ def list_security_configurations(conn=None, region=None, key=None, keyid=None, p
     '''
     return _list_resource(res_type='security_configurations', info_node='SecurityConfigurations',
                           conn=conn, region=region, key=key, keyid=keyid, profile=profile,
-                          aws_session_token=aws_session_token, botocore_session=botocore_session, aws_profile=aws_profile,
-                          **args)
+                          aws_session_token=aws_session_token, botocore_session=botocore_session,
+                          aws_profile=aws_profile, **args)
 
 
 def list_steps(name=None, conn=None, region=None, key=None, keyid=None, profile=None,
                aws_session_token=None, botocore_session=None, aws_profile=None,
-               **args):
+               ClusterStates=RUNNING, **args):
     '''
     Provides a list of steps for the cluster in reverse order unless you specify stepIds with the request.
 
@@ -754,15 +842,34 @@ def list_steps(name=None, conn=None, region=None, key=None, keyid=None, profile=
 
         salt myminion boto3_emr.list_clusters
     '''
-    return _list_resource(name=name, name_param='ClusterId', res_type='steps', info_node='Steps',
+    name_param = 'ClusterId'
+    if name_param in args:
+        name = args[name_param]
+    else:
+        args[name_param] = name
+    if name:
+        clids = get_cluster_ids(name=name, conn=conn, region=region, key=key, keyid=keyid,
+                                profile=profile, aws_session_token=aws_session_token,
+                                botocore_session=botocore_session, aws_profile=aws_profile,
+                                ClusterStates=ClusterStates)
+        if not clids:
+            msg = 'No resource found with Name {0}'.format(name)
+            log.error(msg)
+            return None
+        if len(clids) > 1:
+            msg = 'Multiple resources found with Name {0}: {1}'.format(name, clids)
+            log.error(msg)
+            return None
+        args.update({name_param: clids[0]})
+    return _list_resource(name=name, name_param=name_param, res_type='steps', info_node='Steps',
                           conn=conn, region=region, key=key, keyid=keyid, profile=profile,
-                          aws_session_token=aws_session_token, botocore_session=botocore_session, aws_profile=aws_profile,
-                          **args)
+                          aws_session_token=aws_session_token, botocore_session=botocore_session,
+                          aws_profile=aws_profile, **args)
 
 
 def describe_cluster(name=None, conn=None, region=None, key=None, keyid=None, profile=None,
                      aws_session_token=None, botocore_session=None, aws_profile=None,
-                     **args):
+                     ClusterStates=RUNNING, **args):
     '''
     Return details about a given cluster.
 
@@ -772,14 +879,33 @@ def describe_cluster(name=None, conn=None, region=None, key=None, keyid=None, pr
 
         salt myminion boto3_enr.describe_cluster my_emr_cluster
     '''
-    return _describe_resource(name=name, name_param='ClusterId', res_type='cluster',
-            info_node='Cluster', conn=conn, region=region,
-            key=key, keyid=keyid, profile=profile,
-            aws_session_token=aws_session_token, botocore_session=botocore_session, aws_profile=aws_profile,
-            **args)
+    name_param = 'ClusterId'
+    if name_param in args:
+        name = args[name_param]
+    else:
+        args[name_param] = name
+    if name:
+        clids = get_cluster_ids(name=name, conn=conn, region=region, key=key, keyid=keyid,
+                                profile=profile, aws_session_token=aws_session_token,
+                                botocore_session=botocore_session, aws_profile=aws_profile,
+                                ClusterStates=ClusterStates)
+        if not clids:
+            msg = 'No resource found with Name {0}'.format(name)
+            log.error(msg)
+            return None
+        if len(clids) > 1:
+            msg = 'Multiple resources found with Name {0}: {1}'.format(name, clids)
+            log.error(msg)
+            return None
+        args.update({name_param: clids[0]})
+    return _describe_resource(name=name, name_param=name_param, res_type='cluster',
+                              info_node='Cluster', conn=conn, region=region,
+                              key=key, keyid=keyid, profile=profile,
+                              aws_session_token=aws_session_token,
+                              botocore_session=botocore_session, aws_profile=aws_profile, **args)
 
 
-def terminate_job_flows(name=None, wait=600, region=None, key=None, keyid=None, profile=None,
+def terminate_job_flows(name=None, wait=0, region=None, key=None, keyid=None, profile=None,
                         aws_session_token=None, botocore_session=None, aws_profile=None,
                         **args):
     '''
@@ -802,31 +928,27 @@ def terminate_job_flows(name=None, wait=600, region=None, key=None, keyid=None, 
     jfids = args.get('JobFlowIds')
     if 'JobFlowIds' not in args:
         if name:
-            if name.startswith('j-'):  # It's a ClusterId
-                args['JobFlowIds'] = [name]
-            else:
-                args['JobFlowIds'] = [get_cluster_id(name=name, conn=conn, region=region, key=key,
-                        keyid=keyid, profile=profile, aws_session_token=aws_session_token,
-                        botocore_session=botocore_session, aws_profile=aws_profile)]
+            args['JobFlowIds'] = get_cluster_ids(name=name, conn=conn)
         else:
             raise SaltInvocationError('Either `JobFlowIds` or `name` required.')
-    args = dict([(k, v) for k, v in args.items() if not k.startswith('_')])
+    args = {k: v for k, v in args.items() if not k.startswith('_')}
     retries = 30
     while True:
         try:
             conn.terminate_job_flows(**args)
             break
         except botocore.exceptions.ClientError as e:
-            if e.error_code not in RETRY_ON:
+            err = __utils__['boto3.get_error'](e)
+            if err['code'] not in RETRY_ON:
                 log.error('Error terminating job flow(s) {0}: {1}'.format(jfids or name, e))
-                return None
+                return False
             if retries:
-                log.debug('Transient error ({0}) from API, will retry in 5 seconds'.format(e.error_code))
+                log.debug('Transient error ({0}) from API, will retry in 5 seconds'.format(err['code']))
                 retries -= 1
                 time.sleep(5)
                 continue
             log.error('Too many API retries while terminating job flow(s) {0}.'.format(jfids or name))
-            return None
+            return False
     JobFlowIds = args['JobFlowIds']
     if not wait:
         return [describe_cluster(ClusterId=c, conn=conn) for c in JobFlowIds]
@@ -840,18 +962,18 @@ def terminate_job_flows(name=None, wait=600, region=None, key=None, keyid=None, 
         for jfid in [j for j in JobFlowIds]:  # Dupe so we don't mutate while inside loop
             r = describe_cluster(ClusterId=jfid, conn=conn)
             state = r.get('Status', {}).get('State')
-            if state in (None, 'TERMINATED',):
+            if state in (None, 'TERMINATED'):
                 ret += [r]
                 JobFlowIds.remove(jfid)
             elif state in ('TERMINATED_WITH_ERRORS',):
-                reason = r.get('StateChangeReason', {}).get('Message')
-                log.error('Job flow {0} terminated with errors:  {1}'.format(jfid, reason))
+                reason = r.get('Status', {}).get('StateChangeReason', {}).get('Message')
+                log.warning('Job flow `{0}` terminated with errors:  {1}'.format(jfid, reason))
                 ret += [r]
                 JobFlowIds.remove(jfid)
             else:
                 sleep = wait if wait % 60 == wait else 60
-                log.info('Sleeping {0} seconds for Job flow(s) {1} to be terminated.'.format(sleep,
-                         JobFlowIds))
+                log.info('Sleeping {0} seconds for Job flow(s) `{1}` to be terminated.  '
+                         'Current state: {2}'.format(sleep, JobFlowIds, state))
                 time.sleep(sleep)
                 wait -= sleep
                 continue
@@ -863,3 +985,85 @@ def terminate_job_flows(name=None, wait=600, region=None, key=None, keyid=None, 
 
 def delete_clusters(*args, **kwargs):
     return terminate_job_flows(*args, **kwargs)
+
+
+def _get_subnet_id(name, region=None, key=None, keyid=None, profile=None,
+                   aws_session_token=None, botocore_session=None, aws_profile=None):
+    conn = __utils__['boto3.get_connection']('ec2', region=region, key=key, keyid=keyid,
+                                             profile=profile, aws_session_token=aws_session_token,
+                                             botocore_session=botocore_session,
+                                             aws_profile=aws_profile)
+    retries = 30
+    while True:
+        try:
+            ret = conn.describe_subnets(Filters=[{'Name': 'tag:Name', 'Values': [name]}])
+            break
+        except botocore.exceptions.ClientError as e:
+            err = __utils__['boto3.get_error'](e)
+            if err['code'] not in RETRY_ON:
+                msg = 'Error resolving Subnet Name tag {0} to an ID: {1}'.format(name, e)
+                log.error(msg)
+                raise CommandExecutionError(msg)
+            if retries:
+                log.debug('Transient error ({0}) from API, will retry in 5 seconds'.format(err['code']))
+                retries -= 1
+                time.sleep(5)
+                continue
+            msg = 'Too many API retries while resolving Subnet Name {0} to an ID.'.format(name)
+            log.error(msg)
+            raise CommandExecutionError(msg)
+    if not isinstance(ret, dict):
+        msg = 'Error resolving Subnet Name tag `{0}` to an ID'.format(name)
+        log.error(msg)
+        raise CommandExecutionError(msg)
+    subnets = ret.get('Subnets', [])
+    if len(subnets) > 1:
+        msg = 'Given Subnet Name tag `{0}` resolved to multiple IDs: {1}'.format(name, subnets)
+        log.error(msg)
+        raise CommandExecutionError(msg)
+    elif len(subnets) < 1:
+        msg = 'Subnet Name tag `{0}` did not resolve to an ID'.format(name)
+        log.error(msg)
+        raise CommandExecutionError(msg)
+    return subnets[0]['SubnetId']
+
+
+def _get_sg_id(name, region=None, key=None, keyid=None, profile=None,
+               aws_session_token=None, botocore_session=None, aws_profile=None):
+    conn = __utils__['boto3.get_connection']('ec2', region=region, key=key, keyid=keyid,
+                                             profile=profile, aws_session_token=aws_session_token,
+                                             botocore_session=botocore_session,
+                                             aws_profile=aws_profile)
+    retries = 30
+    while True:
+        try:
+            ret = conn.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': [name]}])
+            break
+        except botocore.exceptions.ClientError as e:
+            err = __utils__['boto3.get_error'](e)
+            if err['code'] not in RETRY_ON:
+                msg = 'Error resolving Security Group Name {0} to an ID: {1}'.format(name, e)
+                log.error(msg)
+                raise CommandExecutionError(msg)
+            if retries:
+                log.debug('Transient error ({0}) from API, will retry in 5 seconds'.format(err['code']))
+                retries -= 1
+                time.sleep(5)
+                continue
+            msg = 'Too many API retries while resolving Security Group Name {0} to an ID.'.format(name)
+            log.error(msg)
+            raise CommandExecutionError(msg)
+    if not isinstance(ret, dict):
+        msg = 'Error resolving Security Group Name `{0}` to an ID'.format(name)
+        log.error(msg)
+        raise CommandExecutionError(msg)
+    subnets = ret.get('SecurityGroups', [])
+    if len(subnets) > 1:
+        msg = 'Given Security Group Name `{0}` resolved to multiple IDs: {1}'.format(name, subnets)
+        log.error(msg)
+        raise CommandExecutionError(msg)
+    elif len(subnets) < 1:
+        msg = 'Security Group Name `{0}` did not resolve to an ID'.format(name)
+        log.error(msg)
+        raise CommandExecutionError(msg)
+    return subnets[0]['GroupId']

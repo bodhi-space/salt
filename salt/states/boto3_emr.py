@@ -95,11 +95,11 @@ XXX FIXME
 # Import Python Libs
 from __future__ import absolute_import
 import logging
-
-# Import salty bits
 from salt.exceptions import CommandExecutionError
 
 log = logging.getLogger(__name__)
+# AWS AWI states we consider "running" for our purposes...
+RUNNING = ['STARTING', 'BOOTSTRAPPING', 'RUNNING', 'WAITING']
 
 
 def __virtual__():
@@ -112,7 +112,7 @@ def __virtual__():
         return False
 
 
-def job_flow_present(name, wait=900, region=None, key=None, keyid=None, profile=None,
+def job_flow_present(name, wait=1800, region=None, key=None, keyid=None, profile=None,
                      aws_session_token=None, botocore_session=None, aws_profile=None,
                      **args):
     '''
@@ -330,34 +330,32 @@ def job_flow_present(name, wait=900, region=None, key=None, keyid=None, profile=
     XXX example FIXME
     '''
     ret = {'name': name, 'result': True, 'comment': '', 'changes': {}}
-    args = dict([(k, v) for k, v in args.items() if not k.startswith('_')])
+    args = {k: v for k, v in args.items() if not k.startswith('_')}
     d_args = {'ClusterId': args['ClusterId']} if 'ClusterId' in args else {}
-    try:
-        current = __salt__['boto3_emr.describe_cluster'](name=name, region=region, key=key,
-                keyid=keyid, profile=profile, aws_session_token=aws_session_token,
-                botocore_session=botocore_session, aws_profile=aws_profile, **d_args)
-    except CommandExecutionError as e:
-        current = None
+    if 'Name' not in args:
+        args['Name'] = name
+    current = __salt__['boto3_emr.describe_cluster'](name=args['Name'], region=region, key=key,
+            keyid=keyid, profile=profile, aws_session_token=aws_session_token,
+            botocore_session=botocore_session, aws_profile=aws_profile, **d_args)
     if current:
-        ret['comment'] = 'Job flow / cluster `{0}` ({1}) exists.'.format(name, current['Id'])
+        ret['comment'] = 'Job Flow / Cluster `{0}` ({1}) exists.'.format(args['Name'], current['Id'])
         return ret
 
     if __opts__['test']:
         ret['result'] = None
-        ret['comment'] = 'Job Flow / Cluster `{0}` would be created.'.format(name)
+        ret['comment'] = 'Job Flow / Cluster `{0}` would be created.'.format(args['Name'])
         return ret
 
     new = __salt__['boto3_emr.create_cluster'](name, wait=wait, region=region, key=key,
             keyid=keyid, profile=profile, aws_session_token=aws_session_token,
             botocore_session=botocore_session, aws_profile=aws_profile, **args)
-
     if new:
-        ret['comment'] = 'Cluster {0} was created.'.format(name)
+        ret['comment'] = 'Job Flow / Cluster {0} was created.'.format(args['Name'])
         ret['changes']['old'] = current
         ret['changes']['new'] = new
     else:
         ret['result'] = False
-        ret['comment'] = 'Failed to create {0} cluster.'.format(name)
+        ret['comment'] = 'Failed to create {0} Job Flow / Cluster.'.format(args['Name'])
 
     return ret
 
@@ -418,25 +416,13 @@ def job_flow_absent(name, wait=600, region=None, key=None, keyid=None, profile=N
     XXX example FIXME
     '''
     ret = {'name': name, 'result': True, 'comment': '', 'changes': {}}
-    args = dict([(k, v) for k, v in args.items() if not k.startswith('_')])
-    try:
-        current = __salt__['boto3_emr.list_clusters'](name=name, region=region, key=key,
-                keyid=keyid, profile=profile, aws_session_token=aws_session_token,
-                botocore_session=botocore_session, aws_profile=aws_profile)
-        jfids = [c['Id'] for c in current]
-        if len(current) > 1:
-            msg = 'More than one Job Flow / Cluster found with Name {0}: {1}'.format(name, jfids)
-            log.error(msg)
-            ret['comment'] = msg
-            ret['result'] = False
-            return ret
-    except CommandExecutionError as e:
-        current = []
-
+    args = {k: v for k, v in args.items() if not k.startswith('_')}
+    current = __salt__['boto3_emr.describe_cluster'](name=args['Name'], region=region, key=key,
+            keyid=keyid, profile=profile, aws_session_token=aws_session_token,
+            botocore_session=botocore_session, aws_profile=aws_profile, **d_args)
     if not current:
         ret['comment'] = 'Job flow / cluster `{0}` absent.'.format(name)
         return ret
-    current = current[0]
     jfid = current['Id']
     if current.get('Status', {}).get('State') in ('TERMINATED', 'TERMINATED_WITH_ERRORS'):
         ret['comment'] = 'Job flow / cluster `{0}` ({1}) already terminated'.format(name, jfid)

@@ -239,11 +239,12 @@ def get_connection(service, module=None, region=None, key=None, keyid=None,
         if test_func and getattr(conn, test_func, None):
             getattr(conn, test_func)()  # Call and discard, just to test creds work...
     except botocore.exceptions.ClientError as e:
-        if e.error_code in ('NoCredentialsError', 'ProfileNotFound'):
+        err = get_error(e)
+        if err['code'] in ('NoCredentialsError', 'ProfileNotFound'):
             raise CommandExecutionError('Error authenticating for service `{0}`: {1}'.format(
-                                        service_name, e))
+                                        service_name, err['message']))
         raise CommandExecutionError('Error creating client for service `{0}`: {1}'.format(
-                                    service_name, e))
+                                    service_name, err['message']))
     __context__[cxkey] = conn
 
     return conn
@@ -274,10 +275,12 @@ def get_error(e):
     Parse a boto3 error object.  Return a hopefully useful description of what went wrong,
     along with the AWS error code, if available.
     '''
-    # Boto3 is muuuuuuch better about standardizing return codes than boto2 was...
-    # I have yet to find a boto3 error object where str(e) was not entirely adequate.
     ret = {'message': str(e)}
-    ret.update({'code': e.error_code}) if getattr(e, 'error_code', None) else None
+    if getattr(e, 'error_code', None):
+        ec = getattr(e, 'error_code', None)
+    else:
+        ec = getattr(e, 'response', {}).get('Error', {}).get('Code')
+    ret.update({'code': ec if ec else 'unknown'})
     return ret
 
 
