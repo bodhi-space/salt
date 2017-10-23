@@ -274,10 +274,12 @@ def get_error(e):
     Parse a boto3 error object.  Return a hopefully useful description of what went wrong,
     along with the AWS error code, if available.
     '''
-    # Boto3 is muuuuuuch better about standardizing return codes than boto2 was...
-    # I have yet to find a boto3 error object where str(e) was not entirely adequate.
     ret = {'message': str(e)}
-    ret.update({'code': e.error_code}) if getattr(e, 'error_code', None) else None
+    if getattr(e, 'error_code', None):
+        ec = getattr(e, 'error_code', None)
+    else:
+        ec = getattr(e, 'response', {}).get('Error', {}).get('Code')
+    ret.update({'code': ec if ec else 'unknown'})
     return ret
 
 
