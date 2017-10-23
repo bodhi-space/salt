@@ -136,7 +136,6 @@ def _collect_results(func, info_node, args, marker='Marker'):
     retries = 30
     while Marker is not None:
         try:
-            log.info('calling: {0}({1})'.format(func.func_name, args))
             r = func(**args)
             sub = r.get(info_node) if info_node else r
             if isinstance(sub, list):
@@ -347,7 +346,7 @@ def _modify_resource(name, name_param=None, desc=None, res_type=None, wait=0, st
         return False
 
 
-def run_job_flow(name=None, wait=600, region=None, key=None, keyid=None, profile=None,
+def run_job_flow(name=None, wait=0, region=None, key=None, keyid=None, profile=None,
                  aws_session_token=None, botocore_session=None, aws_profile=None,
                  **args):
     '''
@@ -588,11 +587,11 @@ def run_job_flow(name=None, wait=600, region=None, key=None, keyid=None, profile
     # Note that for historical reasons, a JobFlowId is the same as a ClusterId...
     ClusterId = ret.get('JobFlowId')
     if not ClusterId:
-        log.error('Error running Job Flow {0}:  No ClusterId found'.format(args['Name']))
+        log.error('Error running Job Flow / Cluster `{0}`: No ClusterId found'.format(args['Name']))
         return False
     if not wait:
         return describe_cluster(ClusterId=ClusterId, conn=conn)
-    log.info('Waiting up to {0} seconds for Job Flow / Cluster {1} ({2}) to become ready.'.format(
+    log.info('Waiting up to {0} seconds for Job Flow / Cluster `{1}` ({2}) to become ready.'.format(
             wait, args['Name'], ClusterId))
     orig_wait = wait
     while wait > 0:
@@ -600,13 +599,14 @@ def run_job_flow(name=None, wait=600, region=None, key=None, keyid=None, profile
         state = r.get('Status', {}).get('State')
         if state in ('STARTING', 'BOOTSTRAPPING'):
             sleep = wait if wait % 60 == wait else 60
-            log.info('Sleeping {0} seconds for cluster {1} to become ready.'.format(sleep, args['Name']))
+            log.info('Sleeping {0} seconds for Job Flow / Cluster `{1}` to become ready.  '
+                     'Current state: {2}'.format(sleep, args['Name'], state))
             time.sleep(sleep)
             wait -= sleep
             continue
         elif state in ('TERMINATED', 'TERMINATED_WITH_ERRORS',):
             reason = r.get('Status', {}).get('StateChangeReason', {}).get('Message')
-            log.error('Cluster {0} terminated:  {1}'.format(args['Name'], reason))
+            log.error('Job Flow / Cluster `{0}` terminated:  {1}'.format(args['Name'], reason))
             return False
         else:  # All other states imply success of some sort or another...
             return r
@@ -905,7 +905,7 @@ def describe_cluster(name=None, conn=None, region=None, key=None, keyid=None, pr
                               botocore_session=botocore_session, aws_profile=aws_profile, **args)
 
 
-def terminate_job_flows(name=None, wait=600, region=None, key=None, keyid=None, profile=None,
+def terminate_job_flows(name=None, wait=0, region=None, key=None, keyid=None, profile=None,
                         aws_session_token=None, botocore_session=None, aws_profile=None,
                         **args):
     '''
@@ -967,13 +967,13 @@ def terminate_job_flows(name=None, wait=600, region=None, key=None, keyid=None, 
                 JobFlowIds.remove(jfid)
             elif state in ('TERMINATED_WITH_ERRORS',):
                 reason = r.get('Status', {}).get('StateChangeReason', {}).get('Message')
-                log.error('Job flow {0} terminated with errors:  {1}'.format(jfid, reason))
+                log.warning('Job flow `{0}` terminated with errors:  {1}'.format(jfid, reason))
                 ret += [r]
                 JobFlowIds.remove(jfid)
             else:
                 sleep = wait if wait % 60 == wait else 60
-                log.info('Sleeping {0} seconds for Job flow(s) {1} to be terminated.'.format(sleep,
-                         JobFlowIds))
+                log.info('Sleeping {0} seconds for Job flow(s) `{1}` to be terminated.  '
+                         'Current state: {2}'.format(sleep, JobFlowIds, state))
                 time.sleep(sleep)
                 wait -= sleep
                 continue

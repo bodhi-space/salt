@@ -112,7 +112,7 @@ def __virtual__():
         return False
 
 
-def job_flow_present(name, wait=900, region=None, key=None, keyid=None, profile=None,
+def job_flow_present(name, wait=1800, region=None, key=None, keyid=None, profile=None,
                      aws_session_token=None, botocore_session=None, aws_profile=None,
                      **args):
     '''
