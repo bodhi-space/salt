@@ -951,7 +951,7 @@ def terminate_job_flows(name=None, wait=0, region=None, key=None, keyid=None, pr
             return False
     JobFlowIds = args['JobFlowIds']
     if not wait:
-        return [describe_cluster(ClusterId=c, conn=conn) for c in JobFlowIds]
+        return [describe_cluster(ClusterId=c, conn=conn, ClusterStates=[]) for c in JobFlowIds]
     log.info('Waiting up to {0} seconds for job flow(s) {1} to be terminated.'.format(wait,
               jfids or name))
     orig_wait = wait
@@ -960,7 +960,7 @@ def terminate_job_flows(name=None, wait=0, region=None, key=None, keyid=None, pr
         if not JobFlowIds:  # All done, one way or another.
             return ret
         for jfid in [j for j in JobFlowIds]:  # Dupe so we don't mutate while inside loop
-            r = describe_cluster(ClusterId=jfid, conn=conn)
+            r = describe_cluster(ClusterId=jfid, conn=conn, ClusterStates=[])
             state = r.get('Status', {}).get('State')
             if state in (None, 'TERMINATED'):
                 ret += [r]
@@ -979,7 +979,7 @@ def terminate_job_flows(name=None, wait=0, region=None, key=None, keyid=None, pr
                 continue
     # Also return deets on any remaining unfinished terms so the user can see their status...
     log.error('Some Job flow(s) not terminated after {0} seconds: {1}.'.format(orig_wait, JobFlowIds))
-    ret += [describe_cluster(ClusterId=c, conn=conn) for c in JobFlowIds]
+    ret += [describe_cluster(ClusterId=c, conn=conn, ClusterStates=[]) for c in JobFlowIds]
     return ret
 
 
