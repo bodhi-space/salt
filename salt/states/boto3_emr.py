@@ -330,10 +330,9 @@ def job_flow_present(name, wait=1800, region=None, key=None, keyid=None, profile
     XXX example FIXME
     '''
     ret = {'name': name, 'result': True, 'comment': '', 'changes': {}}
+    args['Name'] = name if 'Name' not in args else args['Name']
     args = {k: v for k, v in args.items() if not k.startswith('_')}
     d_args = {'ClusterId': args['ClusterId']} if 'ClusterId' in args else {}
-    if 'Name' not in args:
-        args['Name'] = name
     current = __salt__['boto3_emr.describe_cluster'](name=args['Name'], region=region, key=key,
             keyid=keyid, profile=profile, aws_session_token=aws_session_token,
             botocore_session=botocore_session, aws_profile=aws_profile, **d_args)
@@ -417,7 +416,9 @@ def job_flow_absent(name, wait=600, region=None, key=None, keyid=None, profile=N
     '''
     ret = {'name': name, 'result': True, 'comment': '', 'changes': {}}
     args = {k: v for k, v in args.items() if not k.startswith('_')}
-    current = __salt__['boto3_emr.describe_cluster'](name=args['Name'], region=region, key=key,
+    d_args = {'ClusterId': args['ClusterId']} if 'ClusterId' in args else {}
+    Name = name if 'Name' not in args else args['Name']
+    current = __salt__['boto3_emr.describe_cluster'](name=Name, region=region, key=key,
             keyid=keyid, profile=profile, aws_session_token=aws_session_token,
             botocore_session=botocore_session, aws_profile=aws_profile, **d_args)
     if not current:
