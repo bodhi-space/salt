@@ -53,6 +53,8 @@ Connection module for Amazon S3 using boto3
 # Import Python libs
 from __future__ import absolute_import
 import logging
+import json
+import difflib
 
 # Import Salt libs
 from salt.utils.versions import LooseVersion as _LooseVersion
@@ -93,6 +95,14 @@ def __virtual__():
 def __init__(opts):  # pylint: disable=unused-argument
     if HAS_BOTO:
         __utils__['boto3.assign_funcs'](__name__, 's3')
+
+
+def _strerror(e):
+    ret = getattr(e, 'response', {}).get('Error', {}).get('Message')
+    ret = ret if ret else '{0}'.format(e.args[0]) if hasattr(e, 'args') and len(e.args) else None
+    ret = ret if ret else getattr(e, 'message', '')
+    log.error(ret)
+    return ret
 
 
 def delete_object(region=None, key=None, keyid=None, profile=None, **kwargs):
@@ -157,8 +167,7 @@ def delete_object(region=None, key=None, keyid=None, profile=None, **kwargs):
         ret = conn.delete_object(**kwargs)
         ret.pop('ResponseMetadata', None)
     except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as e:
-        log.error('{0}'.format(e.response['Error']['Message']))
-        return {'error': e.response['Error']}
+        return {'error': _strerror(e)}
 
     return {'result': ret}
 
@@ -190,8 +199,7 @@ def delete_object_tagging(region=None, key=None, keyid=None, profile=None, **kwa
         ret = conn.delete_object_tagging(**kwargs)
         ret.pop('ResponseMetadata', None)
     except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as e:
-        log.error('{0}'.format(e.response['Error']['Message']))
-        return {'error': e.response['Error']}
+        return {'error': _strerror(e)}
 
     return {'result': ret}
 
@@ -244,8 +252,7 @@ def delete_objects(region=None, key=None, keyid=None, profile=None, **kwargs):
         ret = conn.delete_objects(**kwargs)
         ret.pop('ResponseMetadata', None)
     except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as e:
-        log.error('{0}'.format(e.response['Error']['Message']))
-        return {'error': e.response['Error']}
+        return {'error': _strerror(e)}
 
     return {'result': ret}
 
@@ -323,15 +330,14 @@ def describe_object(region=None, key=None, keyid=None, profile=None, **kwargs):
     ret = r.get('result', None)
     if ret is None:
         return {'result': ret}
-    acl_args = {'Bucket': kwargs.get('Bucket'), 'Key': kwargs.get('Key')}
-    acl_args.update({'VersionId': kwargs['VersionId']}) if 'VersionId' in kwargs else None
-    acl_args.update({'RequestPayer': kwargs['RequestPayer']}) if 'RequestPayer' in kwargs else None
+    get_acl_args = {'Bucket', 'Key', 'VersionId', 'RequestPayer'}
+    acl_args = {arg: kwargs[arg] for arg in get_acl_args if arg in kwargs}
     r = get_object_acl(region=region, key=key, keyid=keyid, profile=profile, **acl_args)
     ret.update({'ACL': r['result']}) if r.get('result') is not None else None
-    tag_args = {'Bucket': kwargs.get('Bucket'), 'Key': kwargs.get('Key')}
-    tag_args.update({'VersionId': kwargs['VersionId']}) if 'VersionId' in kwargs else None
+    get_tagging_args = {'Bucket', 'Key', 'VersionId'}
+    tag_args = {arg: kwargs[arg] for arg in get_tagging_args if arg in kwargs}
     r = get_object_tagging(region=region, key=key, keyid=keyid, profile=profile, **tag_args)
-    ret.update(r['result']) if 'TagSet' in r['result'] else None
+    ret.update(r['result']) if r['result'].get('TagSet') else None
     return {'result': ret}
 
 
@@ -366,8 +372,7 @@ def get_object_acl(region=None, key=None, keyid=None, profile=None, **kwargs):
         ret = conn.get_object_acl(**kwargs)
         ret.pop('ResponseMetadata', None)
     except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as e:
-        log.error('{0}'.format(e.response['Error']['Message']))
-        return {'error': e.response['Error']}
+        return {'error': _strerror(e)}
 
     return {'result': ret}
 
@@ -398,8 +403,7 @@ def get_object_tagging(region=None, key=None, keyid=None, profile=None, **kwargs
         ret = conn.get_object_tagging(**kwargs)
         ret.pop('ResponseMetadata', None)
     except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as e:
-        log.error('{0}'.format(e.response['Error']['Message']))
-        return {'error': e.response['Error']}
+        return {'error': _strerror(e)}
 
     return {'result': ret}
 
@@ -476,8 +480,7 @@ def head_object(region=None, key=None, keyid=None, profile=None, **kwargs):
         ret = conn.head_object(**kwargs)
         ret.pop('ResponseMetadata', None)
     except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as e:
-        log.error('{0}'.format(e.response['Error']['Message']))
-        return {'error': e.response['Error']}
+        return {'error': _strerror(e)}
 
     return {'result': ret}
 
@@ -642,8 +645,7 @@ def put_object(region=None, key=None, keyid=None, profile=None, **kwargs):
         ret = conn.put_object(**kwargs)
         ret.pop('ResponseMetadata', None)
     except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as e:
-        log.error('{0}'.format(e.response['Error']['Message']))
-        return {'error': e.response['Error']}
+        return {'error': _strerror(e)}
 
     return {'result': ret}
 
@@ -670,28 +672,29 @@ def put_object_acl(region=None, key=None, keyid=None, profile=None, **kwargs):
             bucket-owner-full-control
 
     AccessControlPolicy
-        A policy doc describing the desired ACL Policy for the object.  For more details see the
+        A (JSON, or data structure which can be converted to JSON) policy doc describing the
+        desired ACL Policy for the object.  For more details see the
         .. _`AWS ACL docs`: https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/PutObjectAcl
         Should be in the form:
-        .. code-block:: python
+        .. code-block:: json
             {
-                'Owner': {
-                    'DisplayName': 'string',
-                    'ID': 'string'
-                },
                 'Grants': [
                     {
-                        'Permission': 'FULL_CONTROL'|'WRITE'|'WRITE_ACP'|'READ'|'READ_ACP',
                         'Grantee': {
                             'DisplayName': 'string',
                             'EmailAddress': 'string',
                             'ID': 'string',
                             'Type': 'CanonicalUser'|'AmazonCustomerByEmail'|'Group',
                             'URI': 'string'
-                        }
+                        },
+                        'Permission': 'FULL_CONTROL'|'WRITE'|'WRITE_ACP'|'READ'|'READ_ACP'
                     },
                     ...
-                ]
+                ],
+                'Owner': {
+                    'DisplayName': 'string',
+                    'ID': 'string'
+                }
             }
 
     GrantFullControl
@@ -727,13 +730,19 @@ def put_object_acl(region=None, key=None, keyid=None, profile=None, **kwargs):
     kwargs = {k: v for k, v in kwargs.items() if not k.startswith('_')}
     conn = _get_conn(region=region, key=key, keyid=keyid, profile=profile)
 
+    if isinstance(kwargs.get('AccessControlPolicy'), six.string_types):
+        try:
+            kwargs['AccessControlPolicy'] = json.loads(kwargs['AccessControlPolicy'])
+        except ValueError as e:
+            msg = "Couldn't parse AccessControlPolicy as JSON: {0}".format(str(e))
+            log.error(msg)
+            return {'error': msg}
     try:
         ret = conn.put_object_acl(**kwargs)
         log.info(ret)
         ret.pop('ResponseMetadata', None)
     except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as e:
-        log.error('{0}'.format(e.response['Error']['Message']))
-        return {'error': e.response['Error']}
+        return {'error': _strerror(e)}
 
     return {'result': ret}
 
@@ -782,8 +791,7 @@ def put_object_tagging(region=None, key=None, keyid=None, profile=None, **kwargs
         log.info(ret)
         ret.pop('ResponseMetadata', None)
     except (botocore.exceptions.ClientError, botocore.exceptions.ParamValidationError) as e:
-        log.error('{0}'.format(e.response['Error']['Message']))
-        return {'error': e.response['Error']}
+        return {'error': _strerror(e)}
 
     return {'result': ret}
 
@@ -791,15 +799,15 @@ def put_object_tagging(region=None, key=None, keyid=None, profile=None, **kwargs
 def tags_to_canonical(tags):
     '''
     Convert various AWS TagSet structures (in various forms) to a dict, which is directly
-    comparable to another dict and is thus usefl as a safe `canonical` form for TagSet data.
+    comparable to another dict and is thus usable as a safe, `canonical`, form for TagSet data.
     '''
     try:
         if isinstance(tags, dict):
-            # Dict is not a valid form for AWS tags, assume already fixed
+            # Dict is not a valid form for AWS tags, assume already canonicalized.
             return tags
         if isinstance(tags, six.string_types):
             t = parse_qs(qs=tagstring, keep_blank_values=True, strict_parsing=True)
-            return {k: v if v is not '' else None for k, v in t.items()}
+            return {k: (v if v is not '' else None) for k, v in t.items()}
         if isinstance(tags, list):
             return {t['Key']: t.get('Value') for t in tags}
     except (ValueError, KeyError) as e:
@@ -809,8 +817,8 @@ def tags_to_canonical(tags):
 
 def canonical_to_tagstring(tags):
     '''
-    Convert a dict to a URL Query String suitable for passing to functions,
-    such as put_object(), which require them.
+    Convert a dict to a URL Query String suitable for passing to functions, such as put_object(),
+    which require them.
     '''
     try:
         return urlencode(tags)
@@ -830,9 +838,33 @@ def canonical_to_tagset(tags):
         return False
 
 
-def yaml_safe_dump(attrs):
+def data_to_ordered_yaml(one):
     '''
-    Safely dump YAML using a readable flow style
+    Dump as data structure to YAML using an ordered output style.  Useful for comparing data
+    structures.
     '''
     dumper = __utils__['yamldumper.get_dumper']('IndentedSafeOrderedDumper')
-    return yaml.dump(attrs, default_flow_style=False, Dumper=dumper)
+    return yaml.dump(one, default_flow_style=False, Dumper=dumper)
+
+
+def compare_datastructures(one, two):
+    '''
+    Compare two arbitrary data structures (for example, AccessControlPolicy documents).  These can
+    be passed as either python data structures or JSON.  Returns a diff-style string describing what
+    changed between the first and the second, or an empty string if they are identical.
+    '''
+    try:
+        if isinstance(one, six.string_types):
+            log.debug('Converting first ACP from JSON: {0}'.format(one))
+            one = json.loads(one)
+        if isinstance(two, six.string_types):
+            log.debug('Converting second ACP from JSON: {0}'.format(two))
+            two = json.loads(two)
+    except ValueError as e:
+        msg = "Couldn't parse AccessControlPolicy as JSON: {0}".format(str(e))
+        log.error(msg)
+        return {'error': msg}
+
+    one = data_to_ordered_yaml(one).splitlines()
+    two = data_to_ordered_yaml(two).splitlines()
+    return '\n'.join(difflib.unified_diff(one, two, lineterm=''))
