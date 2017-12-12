@@ -65,7 +65,7 @@ BuildRequires:  python27-crypto >= 2.6.1
 BuildRequires:  python27-zmq >= 2.2.0
 %if %{with test}
 # requirements/dev_python27.txt
-BuildRequires:  python27-boto >= 2.42.0
+BuildRequires:  python27-boto >= 2.48.0
 BuildRequires:  python27-mock
 BuildRequires:  python27-moto >= 0.3.6
 BuildRequires:  python27-pip
@@ -86,9 +86,9 @@ Requires(pre):  pwdutils
 %endif
 Requires:       logrotate
 Requires:       python27 >= 2.7.12
-Requires:       python27-boto >= 2.42.0
-Requires:       python27-botocore >= 1.5.23
-Requires:       python27-boto3 >= 1.4.4
+Requires:       python27-boto >= 2.48.0
+Requires:       python27-botocore >= 1.7.14
+Requires:       python27-boto3 >= 1.4.7
 Requires:       python27-s3transfer
 #
 # requirements/base.txt
@@ -151,8 +151,8 @@ Group:          System/Monitoring
 Requires:       %{name} = %{epoch}:%{version}
 Requires:       %{name}-master = %{epoch}:%{version}
 Requires:       python27-apache-libcloud
-Requires:     python27-botocore
-Requires:     python27-netaddr
+Requires:       python27-botocore >= 1.7.14
+Requires:       python27-netaddr
 
 %description cloud
 public cloud VM management system
