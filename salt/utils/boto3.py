@@ -43,7 +43,11 @@ from functools import partial
 
 # Import salt libs
 from salt.ext.six.moves import range  # pylint: disable=import-error,redefined-builtin
+<<<<<<< HEAD
 from salt.exceptions import SaltInvocationError, CommandExecutionError  # pylint: disable=unused-import
+=======
+from salt.exceptions import SaltInvocationError, CommandExecutionError
+>>>>>>> infra5737
 from salt.utils.versions import LooseVersion as _LooseVersion
 from salt.ext import six
 import salt.utils.stringutils
@@ -132,6 +136,14 @@ def _get_profile(service, region=None, key=None, keyid=None, profile=None,
         if six.PY3:
             hash_string = salt.utils.to_bytes(hash_string)
         cxkey = label + hashlib.md5(hash_string).hexdigest()
+<<<<<<< HEAD
+=======
+    elif aws_session_token:
+        hash_string = region + aws_session_key
+        if six.PY3:
+            hash_string = salt.utils.to_bytes(hash_string)
+        cxkey = label + hashlib.md5(hash_string).hexdigest()
+>>>>>>> infra5737
     elif aws_profile:
         cxkey = label + aws_profile
     else:  # Fall back to IAM, hopefully...
