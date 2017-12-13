@@ -72,24 +72,22 @@ def object_present(name, region=None, key=None, keyid=None, profile=None, **kwar
     '''
     Ensure a file exists in S3 with the exact contents desired.
 
-    NOTE THAT due to the extraordinarily byzantine history and logic of the ACL/AccessControl/Grant
-    system within S3 and the AWS API infterface thereto, it is a monummental task to support them
-    in an idempotent way.  Thus, at the moment, this state will ACCEPT these arguments, and SET them
-    on the objects as passed, but because we can't verify their current state against the desired,
-    this will lead to re-application at every state run.  This is undesireable in almost all cases,
-    so for the moment it's advised that use of these options be avoided.  Such parameters will be
-    flagged below as "non-idempotent".
+    Note that S3 supports "versioned" and "non-versioned" buckets.  The semantics of ensuring
+    state vary greatly between the two bucket types, since versioned buckets create a new
+    "version" of the object at every change (including metadata changes ABOUT an object), while
+    non-versioned buckets behave much more like a filesystem - pushed objects will overwrite older
+    files of the same name.
 
     name
-        The name of the state definition.  If either Bucket or Key is not provided explicitly,
+        The name of the state definition.  If either of Bucket or Key is not provided explicitly,
         this will be used to determine the location of the object in S3, by splitting on the first
         slash and using the first part as the Bucket name and the remainder as the S3 Key.
 
     Bucket
-        Name of the bucket to which the PUT operation was initiated.
+        Name of the bucket the object is to be placed in.
 
     Key
-        Object key for which the PUT operation was initiated.
+        Name (in `path/to/file` form) of the object to be stored in the Bucket.
 
     FileName
         Absolute path (that is, starting with a `/`) to a file on the local minion filesystem which
@@ -99,7 +97,7 @@ def object_present(name, region=None, key=None, keyid=None, profile=None, **kwar
 
     Body
         Object data.  Note that this can be either a `file`-like object, e.g. something with a
-        `read()` method, OR a sequence of bytes, in which case it will be treated as a blob of bytes
+        `read()` method, OR a sequence of bytes, in which case it will be treated as a blob of data
         (as in b'\\Xnn\\Xnn...') to be written literally to the S3 object.  In practice, the
         FileName param (above) is easier to use in most scenarios.  This option IS very powerful,
         however; as it can, with some effort, read from sockets, streams, or anything else providing
@@ -108,8 +106,8 @@ def object_present(name, region=None, key=None, keyid=None, profile=None, **kwar
         Mutually exclusive with `FileName`.
 
     ACL
-        The canned ACL to apply to the object.  NON-IDEMPOTENT
-        Valid values:
+        A canned ACL to apply to the object.
+        Available values:
             private
             public-read
             public-read-write
@@ -117,6 +115,51 @@ def object_present(name, region=None, key=None, keyid=None, profile=None, **kwar
             aws-exec-read
             bucket-owner-read
             bucket-owner-full-control
+        Note that the ACL and AccessControlPolicy parameters are mutually exclusive.
+
+    AccessControlPolicy
+        A (JSON, or data structure which can be converted to JSON) policy describing the
+        desired Access Control Policy for the object.  For more details see the
+        .. _`AWS ACL docs`: https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/PutObjectAcl
+        Should be in the form:
+        .. code-block:: json
+            {
+                'Grants': [
+                    {
+                        'Grantee': {
+                            'DisplayName': 'string',
+                            'EmailAddress': 'string',
+                            'ID': 'string',
+                            'Type': 'CanonicalUser'|'AmazonCustomerByEmail'|'Group',
+                            'URI': 'string'
+                        },
+                        'Permission': 'FULL_CONTROL'|'WRITE'|'WRITE_ACP'|'READ'|'READ_ACP'
+                    },
+                    ...
+                ],
+                'Owner': {
+                    'DisplayName': 'string',
+                    'ID': 'string'
+                }
+            }
+
+        Note that the ACL and AccessControlPolicy parameters are mutually exclusive.
+        The Grant* options accepted by the put_object_acl() module function are a strict subset
+        of this parameter, so to avoid duplication they are not supported in this state call.
+
+        BE AWARE that you cannot use an email address to specify a grantee for any AWS Region
+        that was created after 12/8/2014.  The following Regions were created after 12/8/2014:
+            US East (Ohio)
+            Canada (Central)
+            Asia Pacific (Mumbai)
+            Asia Pacific (Seoul)
+            EU (Frankfurt)
+            EU (London)
+            China (Beijing)
+            China (Ningxia)
+            AWS GovCloud (US)
+        It is strongly recommended that you simply avoid using `AmazonCustomerByEmail` entirely to
+        prevent issues.
 
     CacheControl
         Specifies caching behavior along the request/reply chain.
@@ -144,18 +187,6 @@ def object_present(name, region=None, key=None, keyid=None, profile=None, **kwar
 
     Expires
         The date and time at which the object is no longer cacheable.
-
-    GrantFullControl
-        Gives the grantee READ, READ_ACP, and WRITE_ACP permissions on the object.  NON-IDEMPOTENT
-
-    GrantRead
-        Allows grantee to read the object data and its metadata.  NON-IDEMPOTENT
-
-    GrantReadACP
-        Allows grantee to read the object ACL.  NON-IDEMPOTENT
-
-    GrantWriteACP
-        Allows grantee to write the ACL for the applicable object.  NON-IDEMPOTENT
 
     Metadata
         A dict of metadata to store with the object in S3.

@@ -9,7 +9,7 @@ Connection module for Amazon S3 using boto3
     it can read them from the ~/.aws/credentials file or from these
     environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY.
     Dynamic credentials are then automatically obtained from AWS API and no
-    further configuration is necessary. More information available at:
+    further configuration is necessary.  More information available at:
 
     .. code-block:: text
 
@@ -150,8 +150,8 @@ def delete_object(region=None, key=None, keyid=None, profile=None, **kwargs):
         VersionId used to reference a specific version of the object.
 
     RequestPayer
-        Confirms that the requester knows they will be charged for the request. Bucket owners need
-        not specify this parameter in their requests. Info on requester pays buckets can be found at
+        Confirms that the requester knows they will be charged for the request.  Bucket owners need
+        not specify this parameter in their requests.  Info on requester pays buckets can be found at
         http://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html
 
     CLI Example:
@@ -234,8 +234,8 @@ def delete_objects(region=None, key=None, keyid=None, profile=None, **kwargs):
         is displayed on your authentication device.
 
     RequestPayer
-        Confirms that the requester knows they will be charged for the request. Bucket owners need
-        not specify this parameter in their requests. Info on requester pays buckets can be found at
+        Confirms that the requester knows they will be charged for the request.  Bucket owners need
+        not specify this parameter in their requests.  Info on requester pays buckets can be found at
         http://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html
 
     CLI Example:
@@ -285,7 +285,7 @@ def describe_object(region=None, key=None, keyid=None, profile=None, **kwargs):
         return a 412 (precondition failed).
 
     Range
-        Downloads the specified range bytes of an object. For more information about the HTTP
+        Downloads the specified range bytes of an object.  For more information about the HTTP
         Range header, go to http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35.
 
     VersionId
@@ -297,23 +297,23 @@ def describe_object(region=None, key=None, keyid=None, profile=None, **kwargs):
     SSECustomerKey
         Specifies the customer-provided encryption key for Amazon S3 to use in encrypting data.
         This value is used to store the object and then it is discarded; Amazon does not store the
-        encryption key. The key must be appropriate for use with the algorithm specified in the
+        encryption key.  The key must be appropriate for use with the algorithm specified in the
         value of SSECustomerAlgorithm.
 
     SSECustomerKeyMD5
-        Specifies the 128-bit MD5 digest of the encryption key according to RFC 1321. Amazon S3
+        Specifies the 128-bit MD5 digest of the encryption key according to RFC 1321.  Amazon S3
         uses this header for a message integrity check to ensure the encryption key was transmitted
-        without error. Please note that this parameter not manditory - it is automatically
+        without error.  Please note that this parameter not manditory - it is automatically
         populated not provided.
 
     RequestPayer
-        Confirms that the requester knows they will be charged for the request. Bucket owners need
-        not specify this parameter in their requests. Info on requester pays buckets can be found at
+        Confirms that the requester knows they will be charged for the request.  Bucket owners need
+        not specify this parameter in their requests.  Info on requester pays buckets can be found at
         http://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html
 
     PartNumber
-        Part number of the object being read. This is a positive integer between 1 and 10,000.
-        Effectively performs a 'ranged' HEAD request for the part specified. Useful querying about
+        Part number of the object being read.  This is a positive integer between 1 and 10,000.
+        Effectively performs a 'ranged' HEAD request for the part specified.  Useful querying about
         the size of the part and the number of parts in this object.
 
     CLI Example:
@@ -355,8 +355,8 @@ def get_object_acl(region=None, key=None, keyid=None, profile=None, **kwargs):
         VersionId used to reference a specific version of the object.
 
     RequestPayer
-        Confirms that the requester knows they will be charged for the request. Bucket owners need
-        not specify this parameter in their requests. Info on requester pays buckets can be found at
+        Confirms that the requester knows they will be charged for the request.  Bucket owners need
+        not specify this parameter in their requests.  Info on requester pays buckets can be found at
         http://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html
 
     CLI Example:
@@ -435,7 +435,7 @@ def head_object(region=None, key=None, keyid=None, profile=None, **kwargs):
         return a 412 (precondition failed).
 
     Range
-        Downloads the specified range bytes of an object. For more information about the HTTP Range
+        Downloads the specified range bytes of an object.  For more information about the HTTP Range
         header, go to http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35.
 
     VersionId
@@ -447,25 +447,24 @@ def head_object(region=None, key=None, keyid=None, profile=None, **kwargs):
     SSECustomerKey
         Specifies the customer-provided encryption key for Amazon S3 to use in encrypting data.
         This value is used to store the object and then it is discarded; Amazon does not store the
-        encryption key. The key must be appropriate for use with the algorithm specified in the
+        encryption key.  The key must be appropriate for use with the algorithm specified in the
         value of SSECustomerAlgorithm.
 
     SSECustomerKeyMD5
-        Specifies the 128-bit MD5 digest of the encryption key according to RFC 1321. Amazon S3 uses
-        this header for a message integrity check to ensure the encryption key was transmitted
+        Specifies the 128-bit MD5 digest of the encryption key according to RFC 1321.  Amazon S3
+        uses this header for a message integrity check to ensure the encryption key was transmitted
         without error.  Please note that this parameter not manditory - it is automatically
         populated not provided.
 
     RequestPayer
-        Confirms that the requester knows they will be charged for the request. Bucket owners need
-        not specify this parameter in their requests. Info on requester pays buckets can be found at
-        http://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html
+        Confirms that the requester knows they will be charged for the request.  Bucket owners need
+        not specify this parameter in their requests.  Info on requester pays buckets can be found
+        at http://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html
 
     PartNumber
-        Part number of the object being read. This is a positive integer
-        between 1 and 10,000. Effectively performs a 'ranged' HEAD request for
-        the part specified. Useful querying about the size of the part and the
-        number of parts in this object.
+        Part number of the object being read.  This is a positive integer between 1 and 10,000.
+        Effectively performs a 'ranged' HEAD request for the part specified.  Useful querying about
+        the size of the part and the number of parts in this object.
 
     CLI Example:
 
@@ -537,7 +536,7 @@ def put_object(region=None, key=None, keyid=None, profile=None, **kwargs):
         The language the content is in.
 
     ContentLength
-        Size of the body in bytes. This parameter is useful when the size of the body cannot be
+        Size of the body in bytes.  This parameter is useful when the size of the body cannot be
         determined automatically.
 
     ContentMD5
@@ -569,7 +568,7 @@ def put_object(region=None, key=None, keyid=None, profile=None, **kwargs):
         aws:kms).
 
     StorageClass
-        The type of storage to use for the object. Defaults to 'STANDARD'.
+        The type of storage to use for the object.  Defaults to 'STANDARD'.
         Valid values:
             'STANDARD'|'REDUCED_REDUNDANCY'|'STANDARD_IA'
 
@@ -584,24 +583,24 @@ def put_object(region=None, key=None, keyid=None, profile=None, **kwargs):
     SSECustomerKey
         Specifies the customer-provided encryption key for Amazon S3 to use in encrypting data.
         This value is used to store the object and then it is discarded; Amazon does not store the
-        encryption key. The key must be appropriate for use with the algorithm specified in
+        encryption key.  The key must be appropriate for use with the algorithm specified in
         SSECustomerAlgorithm
 
     SSECustomerKeyMD5
-        Specifies the 128-bit MD5 digest of the encryption key according to RFC 1321. Amazon S3
+        Specifies the 128-bit MD5 digest of the encryption key according to RFC 1321.  Amazon S3
         uses this header for a message integrity check to ensure the encryption key was transmitted
         without error.  Please note that this parameter is automatically populated if it is not
         provided, so including this parameter is not required.
 
     SSEKMSKeyId
-        Specifies the AWS KMS key ID to use for object encryption. All GET and PUT requests for
-        an object protected by AWS KMS will fail if not made via SSL or using SigV4. Documentation
+        Specifies the AWS KMS key ID to use for object encryption.  All GET and PUT requests for
+        an object protected by AWS KMS will fail if not made via SSL or using SigV4.  Documentation
         on configuring any of the officially supported AWS SDKs and CLI can be found at
         http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingAWSSDK.html#specify-signature-version
 
     RequestPayer
-        Confirms that the requester knows they will be charged for the request. Bucket owners need
-        not specify this parameter in their requests. Info on requester pays buckets can be found at
+        Confirms that the requester knows they will be charged for the request.  Bucket owners need
+        not specify this parameter in their requests.  Info on requester pays buckets can be found at
         http://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html
 
     Tagging
@@ -670,10 +669,11 @@ def put_object_acl(region=None, key=None, keyid=None, profile=None, **kwargs):
             aws-exec-read
             bucket-owner-read
             bucket-owner-full-control
+        Note that the ACL and AccessControlPolicy parameters are mutually exclusive.
 
     AccessControlPolicy
-        A (JSON, or data structure which can be converted to JSON) policy doc describing the
-        desired ACL Policy for the object.  For more details see the
+        A (JSON, or data structure which can be converted to JSON) policy describing the
+        desired Access Control Policy for the object.  For more details see the
         .. _`AWS ACL docs`: https://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/PutObjectAcl
         Should be in the form:
         .. code-block:: json
@@ -697,24 +697,57 @@ def put_object_acl(region=None, key=None, keyid=None, profile=None, **kwargs):
                 }
             }
 
+        Note that the ACL and AccessControlPolicy parameters are mutually exclusive.
+        Also note that AWS does not permit passing any of the Grant* options in the same call as
+        one including an AccessControlPolicy.
+
+        BE AWARE that you cannot use an email address to specify a grantee for any AWS Region
+        that was created after 12/8/2014.  The following Regions were created after 12/8/2014:
+            US East (Ohio)
+            Canada (Central)
+            Asia Pacific (Mumbai)
+            Asia Pacific (Seoul)
+            EU (Frankfurt)
+            EU (London)
+            China (Beijing)
+            China (Ningxia)
+            AWS GovCloud (US)
+        It is strongly recommended that you simply avoid using `AmazonCustomerByEmail` entirely to
+        prevent issues.
+
     GrantFullControl
         Allows grantee the read, write, read ACP, and write ACP permissions on the bucket.
+        Note that internally this maps to the equivalent AccessControlPolicy.
+        Also note that AWS does not permit passing any of the Grant* options in the same call as
+        one including an AccessControlPolicy.
 
     GrantRead
         Allows grantee to list the objects in the bucket.
+        Note that internally this maps to the equivalent AccessControlPolicy.
+        Also note that AWS does not permit passing any of the Grant* options in the same call as
+        one including an AccessControlPolicy.
 
     GrantReadACP
         Allows grantee to read the bucket ACL.
+        Note that internally this maps to the equivalent AccessControlPolicy.
+        Also note that AWS does not permit passing any of the Grant* options in the same call as
+        one including an AccessControlPolicy.
 
     GrantWrite
         Allows grantee to create, overwrite, and delete any object in the bucket.
+        Note that internally this maps to the equivalent AccessControlPolicy.
+        Also note that AWS does not permit passing any of the Grant* options in the same call as
+        one including an AccessControlPolicy.
 
     GrantWriteACP
         Allows grantee to write the ACL for the applicable bucket.
+        Note that internally this maps to the equivalent AccessControlPolicy.
+        Also note that AWS does not permit passing any of the Grant* options in the same call as
+        one including an AccessControlPolicy.
 
     RequestPayer
-        Confirms that the requester knows they will be charged for the request. Bucket owners need
-        not specify this parameter in their requests. Info on requester pays buckets can be found at
+        Confirms that the requester knows they will be charged for the request.  Bucket owners need
+        not specify this parameter in their requests.  Info on requester pays buckets can be found at
         http://docs.aws.amazon.com/AmazonS3/latest/dev/ObjectsinRequesterPaysBuckets.html
 
     VersionId
@@ -840,7 +873,7 @@ def canonical_to_tagset(tags):
 
 def data_to_ordered_yaml(one):
     '''
-    Dump as data structure to YAML using an ordered output style.  Useful for comparing data
+    Dump a data structure to YAML using an ordered output style.  Useful for comparing data
     structures.
     '''
     dumper = __utils__['yamldumper.get_dumper']('IndentedSafeOrderedDumper')
@@ -855,13 +888,13 @@ def compare_datastructures(one, two):
     '''
     try:
         if isinstance(one, six.string_types):
-            log.debug('Converting first ACP from JSON: {0}'.format(one))
+            log.debug('Converting first value from JSON: {0}'.format(one))
             one = json.loads(one)
         if isinstance(two, six.string_types):
-            log.debug('Converting second ACP from JSON: {0}'.format(two))
+            log.debug('Converting second value from JSON: {0}'.format(two))
             two = json.loads(two)
     except ValueError as e:
-        msg = "Couldn't parse AccessControlPolicy as JSON: {0}".format(str(e))
+        msg = "Couldn't parse string as JSON: {0}".format(str(e))
         log.error(msg)
         return {'error': msg}
 
