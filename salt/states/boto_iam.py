@@ -459,8 +459,8 @@ def _delete_key(ret, access_key_id, user_name, region=None, key=None, keyid=None
         return ret
 
 
-def user_present(name, policies=None, policies_from_pillars=None, managed_policies=None, password=None, path=None,
-                 region=None, key=None, keyid=None, profile=None):
+def user_present(name, policies=None, policies_from_pillars=None, managed_policies=None, password=None,
+                 password_reset_required=False, path=None, region=None, key=None, keyid=None, profile=None):
     '''
 
     .. versionadded:: 2015.8.0
@@ -488,6 +488,10 @@ def user_present(name, policies=None, policies_from_pillars=None, managed_polici
 
     password (string)
         The password for the new user. Must comply with account policy.
+
+    password_reset_required (bool)
+        If a password is provided, setting this to True will force the user to
+        change their password at the next login.  Defaults to False.
 
     path (string)
         The path of the user. Default is '/'.
@@ -530,14 +534,14 @@ def user_present(name, policies=None, policies_from_pillars=None, managed_polici
             ret['changes']['user'] = created
             ret['comment'] = ' '.join([ret['comment'], 'User {0} has been created.'.format(name)])
             if password:
-                ret = _case_password(ret, name, password, region, key, keyid, profile)
+                ret = _case_password(ret, name, password, password_reset_required, region, key, keyid, profile)
             _ret = _user_policies_present(name, _policies, region, key, keyid, profile)
             ret['changes'] = dictupdate.update(ret['changes'], _ret['changes'])
             ret['comment'] = ' '.join([ret['comment'], _ret['comment']])
     else:
         ret['comment'] = ' '.join([ret['comment'], 'User {0} is present.'.format(name)])
         if password:
-            ret = _case_password(ret, name, password, region, key, keyid, profile)
+            ret = _case_password(ret, name, password, password_reset_required, region, key, keyid, profile)
         _ret = _user_policies_present(name, _policies, region, key, keyid, profile)
         ret['changes'] = dictupdate.update(ret['changes'], _ret['changes'])
         ret['comment'] = ' '.join([ret['comment'], _ret['comment']])
@@ -741,12 +745,13 @@ def _user_policies_detached(
     return ret
 
 
-def _case_password(ret, name, password, region=None, key=None, keyid=None, profile=None):
+def _case_password(ret, name, password, password_reset_required, region=None, key=None, keyid=None, profile=None):
     if __opts__['test']:
         ret['comment'] = 'Login policy for {0} is set to be changed.'.format(name)
         ret['result'] = None
         return ret
-    login = __salt__['boto_iam.create_login_profile'](name, password, region, key, keyid, profile)
+    login = __salt__['boto_iam.create_login_profile'](name, password, password_reset_required,
+                                                      region, key, keyid, profile)
     log.debug('Login is : {0}.'.format(login))
     if login:
         if 'Conflict' in login:
