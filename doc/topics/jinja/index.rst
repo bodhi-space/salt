@@ -150,6 +150,22 @@ starts at the root of the state tree or pillar.
 .. _`macro`: http://jinja.pocoo.org/docs/templates/#macros
 .. _`whitespace control`: http://jinja.pocoo.org/docs/templates/#whitespace-control
 
+Errors
+======
+
+Saltstack allows to raise custom errors using the ``raise`` jinja function.
+
+.. code-block:: jinja
+
+    {{ raise('Custom Error') }}
+
+When rendering the template containing the above statement, a ``TemplateError``
+exception is raised, causing the rendering to fail with the following message:
+
+.. code-block:: text
+
+    TemplateError: Custom Error
+
 Filters
 =======
 
@@ -335,7 +351,7 @@ Returns:
 
 .. versionadded:: 2017.7.0
 
-Wraps a text around quoutes.
+This text will be wrapped in quotes.
 
 
 .. jinja_ref:: regex_search
@@ -750,19 +766,43 @@ Returns:
 
 Check a whitelist and/or blacklist to see if the value matches it.
 
-Example:
+This filter can be used with either a whitelist or a blacklist individually,
+or a whitelist and a blacklist can be passed simultaneously.
+
+If whitelist is used alone, value membership is checked against the
+whitelist only. If the value is found, the function returns ``True``.
+Otherwise, it returns ``False``.
+
+If blacklist is used alone, value membership is checked against the
+blacklist only. If the value is found, the function returns ``False``.
+Otherwise, it returns ``True``.
+
+If both a whitelist and a blacklist are provided, value membership in the
+blacklist will be examined first. If the value is not found in the blacklist,
+then the whitelist is checked. If the value isn't found in the whitelist,
+the function returns ``False``.
+
+Whitelist Example:
 
 .. code-block:: jinja
 
-  {{ 5 | check_whitelist_blacklist(whitelist=[5, 6, 7]) }}
-  {{ 5 | check_whitelist_blacklist(blacklist=[5, 6, 7]) }}
+    {{ 5 | check_whitelist_blacklist(whitelist=[5, 6, 7]) }}
 
 Returns:
 
 .. code-block:: python
 
-  True
+    True
 
+Blacklist Example:
+
+.. code-block:: jinja
+
+    {{ 5 | check_whitelist_blacklist(blacklist=[5, 6, 7]) }}
+
+.. code-block:: python
+
+    False
 
 .. jinja_ref:: date_format
 
@@ -788,12 +828,14 @@ Returns:
   08.03.2017 17:00
 
 
-.. jinja_ref:: str_to_num
+.. jinja_ref:: to_num
 
-``str_to_num``
---------------
+``to_num``
+----------
 
 .. versionadded:: 2017.7.0
+.. versionadded:: Oxygen
+    Renamed from ``str_to_num`` to ``to_num``.
 
 Converts a string to its numerical value.
 
@@ -801,7 +843,7 @@ Example:
 
 .. code-block:: jinja
 
-  {{ '5' | str_to_num }}
+  {{ '5' | to_num }}
 
 Returns:
 
@@ -825,21 +867,35 @@ Example:
 
   {{ 'wall of text' | to_bytes }}
 
+.. note::
+
+    This option may have adverse effects when using the default renderer,
+    ``yaml_jinja``. This is due to the fact that YAML requires proper handling
+    in regard to special characters. Please see the section on :ref:`YAML ASCII
+    support <yaml_plain_ascii>` in the :ref:`YAML Idiosyncracies
+    <yaml-idiosyncrasies>` documentation for more information.
 
 .. jinja_ref:: json_decode_list
+.. jinja_ref:: json_encode_list
 
-``json_decode_list``
+``json_encode_list``
 --------------------
 
 .. versionadded:: 2017.7.0
+.. versionadded:: Oxygen
+    Renamed from ``json_decode_list`` to ``json_encode_list``. When you encode
+    something you get bytes, and when you decode, you get your locale's
+    encoding (usually a ``unicode`` type). This filter was incorrectly-named
+    when it was added. ``json_decode_list`` will be supported until the Neon
+    release.
 
-JSON decodes as unicode, Jinja needs bytes.
+Recursively encodes all string elements of the list to bytes.
 
 Example:
 
 .. code-block:: jinja
 
-  {{ [1, 2, 3] | json_decode_list }}
+  {{ [1, 2, 3] | json_encode_list }}
 
 Returns:
 
@@ -849,43 +905,60 @@ Returns:
 
 
 .. jinja_ref:: json_decode_dict
+.. jinja_ref:: json_encode_dict
 
-``json_decode_dict``
+``json_encode_dict``
 --------------------
 
 .. versionadded:: 2017.7.0
+.. versionadded:: Oxygen
+    Renamed from ``json_decode_dict`` to ``json_encode_dict``. When you encode
+    something you get bytes, and when you decode, you get your locale's
+    encoding (usually a ``unicode`` type). This filter was incorrectly-named
+    when it was added. ``json_decode_dict`` will be supported until the Neon
+    release.
 
-JSON decodes as unicode, Jinja needs bytes.
+Recursively encodes all string items in the dictionary to bytes.
 
 Example:
 
+Assuming that ``pillar['foo']`` contains ``{u'a': u'\u0414'}``, and your locale
+is ``en_US.UTF-8``:
+
 .. code-block:: jinja
 
-  {{ {'a': 'b'} | json_decode_dict }}
+  {{ pillar['foo'] | json_encode_dict }}
 
 Returns:
 
 .. code-block:: python
 
-  {'a': 'b'}
+  {'a': '\xd0\x94'}
 
 
-.. jinja_ref:: rand_str
+.. jinja_ref:: random_hash
 
-``rand_str``
-------------
+``random_hash``
+---------------
 
 .. versionadded:: 2017.7.0
+.. versionadded:: Oxygen
+    Renamed from ``rand_str`` to ``random_hash`` to more accurately describe
+    what the filter does. ``rand_str`` will be supported until the Neon
+    release.
 
-Generate a random string and applies a hash. Default hashing: md5.
+Generates a random number between 1 and the number passed to the filter, and
+then hashes it. The default hash type is the one specified by the minion's
+:conf_minion:`hash_type` config option, but an alternate hash type can be
+passed to the filter as an argument.
 
 Example:
 
 .. code-block:: jinja
 
-  {% set passwd_length = 17 %}
-  {{ passwd_length | rand_str }}
-  {{ passwd_length | rand_str('sha512') }}
+  {% set num_range = 99999999 %}
+  {{ num_range | random_hash }}
+  {{ num_range | random_hash('sha512') }}
 
 Returns:
 
@@ -1186,7 +1259,7 @@ Example:
 
 .. code-block:: jinja
 
-  {{ ['192.168.0.1', 'foo', 'bar', 'fe80::'] | ipv4 }}
+  {{ ['192.168.0.1', 'foo', 'bar', 'fe80::'] | ipv6 }}
 
 Returns:
 
@@ -1202,7 +1275,12 @@ Returns:
 
 .. versionadded:: 2017.7.0
 
-Return the list of hosts within a networks.
+Return the list of hosts within a networks. This utility works for both IPv4 and IPv6.
+
+.. note::
+
+    When running this command with a large IPv6 network, the command will
+    take a long time to gather all of the hosts.
 
 Example:
 
@@ -1224,7 +1302,7 @@ Returns:
 
 .. versionadded:: 2017.7.0
 
-Return the size of the network.
+Return the size of the network. This utility works for both IPv4 and IPv6.
 
 Example:
 
@@ -1284,6 +1362,13 @@ Example:
 
   {{ '00:11:22:33:44:55' | mac_str_to_bytes }}
 
+.. note::
+
+    This option may have adverse effects when using the default renderer, ``yaml_jinja``.
+    This is due to the fact that YAML requires proper handling in regard to special
+    characters. Please see the section on :ref:`YAML ASCII support <yaml_plain_ascii>`
+    in the :ref:`YAML Idiosyncracies <yaml-idiosyncrasies>` documentation for more
+    information.
 
 .. jinja_ref:: dns_check
 
@@ -1545,6 +1630,54 @@ Returns:
 Test supports additional optional arguments: ``ignorecase``, ``multiline``
 
 
+Escape filters
+--------------
+
+.. jinja_ref:: regex_escape
+
+``regex_escape``
+----------------
+
+.. versionadded:: 2017.7.0
+
+Allows escaping of strings so they can be interpreted literally by another function.
+
+Example:
+
+.. code-block:: jinja
+
+  regex_escape = {{ 'https://example.com?foo=bar%20baz' | regex_escape }}
+
+will be rendered as:
+
+.. code-block:: text
+
+  regex_escape = https\:\/\/example\.com\?foo\=bar\%20baz
+
+Set Theory Filters
+------------------
+
+.. jinja_ref:: unique
+
+``unique``
+----------
+
+.. versionadded:: 2017.7.0
+
+Performs set math using Jinja filters.
+
+Example:
+
+.. code-block:: jinja
+
+  unique = {{ ['foo', 'foo', 'bar'] | unique }}
+
+will be rendered as:
+
+.. code-block:: text
+
+  unique = ['foo', 'bar']
+
 Jinja in Files
 ==============
 
@@ -1660,7 +1793,7 @@ in the current Jinja context.
 
 .. code-block:: jinja
 
-    Context is: {{ show_full_context() }}
+    Context is: {{ show_full_context()|yaml(False) }}
 
 .. jinja_ref:: logs
 
@@ -1683,6 +1816,23 @@ Will insert the following message in the minion logs:
     2017-02-01 01:24:40,728 [salt.module.logmod][ERROR   ][3779] testing jinja logging
 
 .. jinja_ref:: custom-execution-modules
+
+Python Methods
+====================
+
+A powerful feature of jinja that is only hinted at in the official jinja
+documentation is that you can use the native python methods of the
+variable type. Here is the python documentation for `string methods`_.
+
+.. code-block:: jinja
+
+  {% set hostname,domain = grains.id.partition('.')[::2] %}{{ hostname }}
+
+.. code-block:: jinja
+
+  {% set strings = grains.id.split('-') %}{{ strings[0] }}
+
+.. _`string methods`: https://docs.python.org/2/library/stdtypes.html#string-methods
 
 Custom Execution Modules
 ========================

@@ -44,6 +44,7 @@ execution modules
     boto_apigateway
     boto_asg
     boto_cfn
+    boto_cloudfront
     boto_cloudtrail
     boto_cloudwatch
     boto_cloudwatch_event
@@ -82,6 +83,7 @@ execution modules
     chef
     chocolatey
     chronos
+    cimc
     cisconso
     cloud
     cmdmod
@@ -97,6 +99,7 @@ execution modules
     cytest
     daemontools
     data
+    datadog_api
     ddns
     deb_apache
     deb_postgres
@@ -197,6 +200,7 @@ execution modules
     keyboard
     keystone
     kmod
+    kubernetes
     launchctl
     layman
     ldap3
@@ -235,6 +239,7 @@ execution modules
     mac_user
     mac_xattr
     makeconf
+    mandrill
     marathon
     match
     mattermost
@@ -296,17 +301,21 @@ execution modules
     openstack_mng
     openvswitch
     opkg
+    opsgenie
     oracle
     osquery
+    out
     pacman
     pagerduty
     pagerduty_util
     pam
+    panos
     parallels
     parted
     pcs
     pdbedit
     pecl
+    pf
     philips_hue
     pillar
     pip
@@ -323,6 +332,7 @@ execution modules
     ps
     publish
     puppet
+    purefa
     pushbullet
     pushover_notify
     pw_group
@@ -397,10 +407,10 @@ execution modules
     state
     status
     statuspage
-    stormpath
     supervisord
     suse_apache
     svn
+    swarm
     swift
     sysbench
     sysfs
@@ -410,11 +420,13 @@ execution modules
     system
     system_profiler
     systemd
+    telegram
     telemetry
     temp
     test
     testinframod
     test_virtual
+    textfsm_mod
     timezone
     tls
     tomcat
@@ -427,6 +439,7 @@ execution modules
     uptime
     useradd
     uwsgi
+    vagrant
     varnish
     vault
     vbox_guest
@@ -434,6 +447,7 @@ execution modules
     victorops
     virt
     virtualenv_mod
+    vmctl
     vsphere
     win_autoruns
     win_certutil

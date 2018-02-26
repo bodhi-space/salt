@@ -4,7 +4,8 @@ Test the grains module
 '''
 
 # Import python libs
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
+import logging
 import os
 import time
 
@@ -12,6 +13,8 @@ import time
 from tests.support.case import ModuleCase
 from tests.support.unit import skipIf
 from tests.support.helpers import destructiveTest
+
+log = logging.getLogger(__name__)
 
 
 class TestModulesGrains(ModuleCase):
@@ -48,6 +51,7 @@ class TestModulesGrains(ModuleCase):
             'cpuarch',
             'domain',
             'fqdn',
+            'fqdns',
             'gid',
             'groupname',
             'host',
@@ -110,11 +114,12 @@ class TestModulesGrains(ModuleCase):
         '''
         test to ensure some core grains are returned
         '''
-        grains = ['os', 'os_family', 'osmajorrelease', 'osrelease', 'osfullname', 'id']
+        grains = ('os', 'os_family', 'osmajorrelease', 'osrelease', 'osfullname', 'id')
         os = self.run_function('grains.get', ['os'])
 
         for grain in grains:
             get_grain = self.run_function('grains.get', [grain])
+            log.debug('Value of \'%s\' grain: \'%s\'', grain, get_grain)
             if os == 'Arch' and grain in ['osmajorrelease']:
                 self.assertEqual(get_grain, '')
                 continue

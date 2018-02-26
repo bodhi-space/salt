@@ -16,7 +16,7 @@ Dependencies
 .. versionadded:: 2016.11.0
 '''
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
 
 import logging
 log = logging.getLogger(__name__)
@@ -447,8 +447,8 @@ def optional_args(proxy=None):
         device2:
             True
     '''
-    opt_args = _get_device_grain('optional_args', proxy=proxy)
-    if _FORBIDDEN_OPT_ARGS:
+    opt_args = _get_device_grain('optional_args', proxy=proxy) or {}
+    if opt_args and _FORBIDDEN_OPT_ARGS:
         for arg in _FORBIDDEN_OPT_ARGS:
             opt_args.pop(arg, None)
     return {'optional_args': opt_args}

@@ -4,7 +4,7 @@ Set up the version of Salt
 '''
 
 # Import python libs
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, unicode_literals
 import re
 import sys
 import platform
@@ -69,7 +69,10 @@ class SaltStackVersion(object):
         r'(?:(?P<pre_type>rc|a|b|alpha|beta|nb)(?P<pre_num>[\d]{1}))?'
         r'(?:(?:.*)-(?P<noc>(?:[\d]+|n/a))-(?P<sha>[a-z0-9]{8}))?'
     )
-    git_sha_regex = re.compile(r'(?P<sha>[a-z0-9]{7})')
+    git_sha_regex = r'(?P<sha>[a-z0-9]{7})'
+    if six.PY2:
+        git_sha_regex = git_sha_regex.decode(__salt_system_encoding__)
+    git_sha_regex = re.compile(git_sha_regex)
 
     # Salt versions after 0.17.0 will be numbered like:
     #   <4-digit-year>.<month>.<bugfix>
@@ -97,6 +100,7 @@ class SaltStackVersion(object):
         'Oxygen'        : (MAX_SIZE - 101, 0),
         'Fluorine'      : (MAX_SIZE - 100, 0),
         'Neon'          : (MAX_SIZE - 99, 0),
+        'Sodium'        : (MAX_SIZE - 98, 0),
         # pylint: disable=E8265
         #'Sodium'       : (MAX_SIZE - 98, 0),
         #'Magnesium'    : (MAX_SIZE - 97, 0),
@@ -310,16 +314,6 @@ class SaltStackVersion(object):
         )
 
     @property
-    def rc_info(self):
-        import salt.utils
-        salt.utils.warn_until(
-            'Oxygen',
-            'Please stop using the \'rc_info\' attribute and instead use '
-            '\'pre_info\'. \'rc_info\' will be supported until Salt {version}.'
-        )
-        return self.pre_info
-
-    @property
     def pre_info(self):
         return (
             self.major,
@@ -511,6 +505,9 @@ def __discover_version(saltstack_version):
             process = subprocess.Popen(
                 ['git', 'describe', '--tags', '--match', 'v[0-9]*', '--always'], **kwargs)
             out, err = process.communicate()
+        if six.PY3:
+            out = out.decode()
+            err = err.decode()
         out = out.strip()
         err = err.strip()
 
@@ -653,18 +650,22 @@ def system_information():
     release = platform.release()
     if platform.win32_ver()[0]:
         import win32api  # pylint: disable=3rd-party-module-not-gated
-        if ((sys.version_info.major == 2 and sys.version_info >= (2, 7, 12)) or
-                (sys.version_info.major == 3 and sys.version_info >= (3, 5, 2))):
-            if win32api.GetVersionEx(1)[8] > 1:
-                server = {'Vista': '2008Server',
-                          '7': '2008ServerR2',
-                          '8': '2012Server',
-                          '8.1': '2012ServerR2',
-                          '10': '2016Server'}
-                release = server.get(platform.release(),
-                                     'UNKServer')
-                _, ver, sp, extra = platform.win32_ver()
-                version = ' '.join([release, ver, sp, extra])
+        server = {'Vista': '2008Server',
+                  '7': '2008ServerR2',
+                  '8': '2012Server',
+                  '8.1': '2012ServerR2',
+                  '10': '2016Server'}
+        # Starting with Python 2.7.12 and 3.5.2 the `platform.uname()` function
+        # started reporting the Desktop version instead of the Server version on
+        # Server versions of Windows, so we need to look those up
+        # So, if you find a Server Platform that's a key in the server
+        # dictionary, then lookup the actual Server Release.
+        # If this is a Server Platform then `GetVersionEx` will return a number
+        # greater than 1.
+        if win32api.GetVersionEx(1)[8] > 1 and release in server:
+            release = server[release]
+        _, ver, sp, extra = platform.win32_ver()
+        version = ' '.join([release, ver, sp, extra])
 
     system = [
         ('system', platform.system()),
@@ -672,6 +673,7 @@ def system_information():
         ('release', release),
         ('machine', platform.machine()),
         ('version', version),
+        ('locale', __salt_system_encoding__),
     ]
 
     for name, attr in system:
@@ -730,7 +732,7 @@ def msi_conformant_version():
 
     Note that the commit count for tags is 0(zero)
     '''
-    year2 = int(str(__saltstack_version__.major)[2:])
+    year2 = int(six.text_type(__saltstack_version__.major)[2:])
     month = __saltstack_version__.minor
     minor = __saltstack_version__.bugfix
     commi = __saltstack_version__.noc

@@ -223,20 +223,56 @@ different grain matches.
 
     class Samba(Map):
         merge = 'samba:lookup'
+        # NOTE: priority is new to 2017.7.0
+        priority = ('os_family', 'os')
+
+        class Ubuntu:
+            __grain__ = 'os'
+            service = 'smbd'
 
         class Debian:
             server = 'samba'
             client = 'samba-client'
             service = 'samba'
 
-        class Ubuntu:
-            __grain__ = 'os'
-            service = 'smbd'
-
-        class RedHat:
+        class RHEL:
+            __match__ = 'RedHat'
             server = 'samba'
             client = 'samba'
             service = 'smb'
+
+.. note::
+    By default, the ``os_family`` grain will be used as the target for
+    matching. This can be overridden by specifying a ``__grain__`` attribute.
+
+    If a ``__match__`` attribute is defined for a given class, then that value
+    will be matched against the targeted grain, otherwise the class name's
+    value will be be matched.
+
+    Given the above example, the following is true:
+
+    1. Minions with an ``os_family`` of **Debian** will be assigned the
+       attributes defined in the **Debian** class.
+    2. Minions with an ``os`` grain of **Ubuntu** will be assigned the
+       attributes defined in the **Ubuntu** class.
+    3. Minions with an ``os_family`` grain of **RedHat** will be assigned the
+       attributes defined in the **RHEL** class.
+
+    That said, sometimes a minion may match more than one class. For instance,
+    in the above example, Ubuntu minions will match both the **Debian** and
+    **Ubuntu** classes, since Ubuntu has an ``os_family`` grain of **Debian**
+    an an ``os`` grain of **Ubuntu**. As of the 2017.7.0 release, the order is
+    dictated by the order of declaration, with classes defined later overriding
+    earlier ones. Addtionally, 2017.7.0 adds support for explicitly defining
+    the ordering using an optional attribute called ``priority``.
+
+    Given the above example, ``os_family`` matches will be processed first,
+    with ``os`` matches processed after. This would have the effect of
+    assigning ``smbd`` as the ``service`` attribute on Ubuntu minions. If the
+    ``priority`` item was not defined, or if the order of the items in the
+    ``priority`` tuple were reversed, Ubuntu minions would have a ``service``
+    attribute of ``samba``, since ``os_family`` matches would have been
+    processed second.
 
 To use this new data you can import it into your state file and then access
 your attributes. To access the data in the map you simply access the attribute
@@ -259,18 +295,18 @@ TODO
 '''
 
 # Import Python Libs
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
 import logging
 import os
 import re
 
 # Import Salt Libs
-from salt.ext.six import exec_
-import salt.utils
+from salt.ext import six
+import salt.utils.files
 import salt.loader
 from salt.fileclient import get_file_client
 from salt.utils.pyobjects import Registry, StateFactory, SaltObject, Map
-import salt.ext.six as six
+from salt.ext import six
 
 # our import regexes
 FROM_RE = re.compile(r'^\s*from\s+(salt:\/\/.*)\s+import (.*)$')
@@ -348,7 +384,7 @@ def render(template, saltenv='base', sls='', salt_data=True, **kwargs):
             mod,
             valid_funcs
         )
-        exec_(mod_cmd, mod_globals, mod_locals)
+        six.exec_(mod_cmd, mod_globals, mod_locals)
 
         _globals[mod_camel] = mod_locals[mod_camel]
 
@@ -421,9 +457,9 @@ def render(template, saltenv='base', sls='', salt_data=True, **kwargs):
                         'Could not find the file \'{0}\''.format(import_file)
                     )
 
-                with salt.utils.fopen(state_file) as state_fh:
+                with salt.utils.files.fopen(state_file) as state_fh:
                     state_contents, state_globals = process_template(state_fh)
-                exec_(state_contents, state_globals)
+                six.exec_(state_contents, state_globals)
 
                 # if no imports have been specified then we are being imported as: import salt://foo.sls
                 # so we want to stick all of the locals from our state file into the template globals
@@ -465,6 +501,6 @@ def render(template, saltenv='base', sls='', salt_data=True, **kwargs):
     Registry.enabled = True
 
     # now exec our template using our created scopes
-    exec_(final_template, _globals)
+    six.exec_(final_template, _globals)
 
     return Registry.salt_data()

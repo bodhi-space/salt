@@ -3,13 +3,16 @@
 the locale utils used by salt
 '''
 
-from __future__ import absolute_import
-
+# Import Python libs
+from __future__ import absolute_import, unicode_literals
 import sys
 
-import salt.utils
-import salt.ext.six as six
+# Import Salt libs
+import salt.utils.stringutils
 from salt.utils.decorators import memoize as real_memoize
+
+# Import 3rd-party libs
+from salt.ext import six
 
 
 @real_memoize
@@ -42,12 +45,12 @@ def sdecode(string_):
     encodings = get_encodings()
     for encoding in encodings:
         try:
-            decoded = salt.utils.to_unicode(string_, encoding)
+            decoded = salt.utils.stringutils.to_unicode(string_, encoding)
             if isinstance(decoded, six.string_types):
                 # Make sure unicode string ops work
                 u' ' + decoded  # pylint: disable=W0104
             return decoded
-        except UnicodeDecodeError:
+        except (TypeError, UnicodeDecodeError):
             continue
     return string_
 
@@ -115,17 +118,3 @@ def normalize_locale(loc):
     comps['codeset'] = comps['codeset'].lower().replace('-', '')
     comps['charmap'] = ''
     return join_locale(comps)
-
-
-def decode_recursively(object_):
-    if isinstance(object_, list):
-        return [decode_recursively(o) for o in object_]
-    if isinstance(object_, tuple):
-        return tuple([decode_recursively(o) for o in object_])
-    if isinstance(object_, dict):
-        return dict([(decode_recursively(key), decode_recursively(value))
-                     for key, value in salt.ext.six.iteritems(object_)])
-    elif isinstance(object_, six.string_types):
-        return sdecode(object_)
-    else:
-        return object_

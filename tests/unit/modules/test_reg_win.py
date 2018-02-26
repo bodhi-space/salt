@@ -7,8 +7,7 @@
     versionadded:: 2016.11.0
 '''
 # Import Python future libs
-from __future__ import absolute_import
-from __future__ import unicode_literals
+from __future__ import absolute_import, print_function, unicode_literals
 # Import Python Libs
 import sys
 import time
@@ -27,7 +26,7 @@ except ImportError:
 PY2 = sys.version_info[0] == 2
 # The following used to make sure we are not
 # testing already existing data
-# Note strftime retunrns a str, so we need to make it unicode
+# Note strftime returns a str, so we need to make it unicode
 TIMEINT = int(time.time())
 
 if PY2:

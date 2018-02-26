@@ -31,6 +31,7 @@ state modules
     boto_apigateway
     boto_asg
     boto_cfn
+    boto_cloudfront
     boto_cloudtrail
     boto_cloudwatch_alarm
     boto_cloudwatch_event
@@ -62,6 +63,7 @@ state modules
     chef
     chocolatey
     chronos_job
+    cimc
     cisconso
     cloud
     cmd
@@ -74,6 +76,10 @@ state modules
     dellchassis
     disk
     docker
+    docker_container
+    docker_image
+    docker_network
+    docker_volume
     drac
     elasticsearch
     elasticsearch_index
@@ -132,6 +138,7 @@ state modules
     keyboard
     keystone
     kmod
+    kubernetes
     layman
     ldap
     libcloud_dns
@@ -174,6 +181,7 @@ state modules
     netusers
     network
     netyang
+    nfs_export
     nftables
     npm
     ntp
@@ -181,11 +189,13 @@ state modules
     openstack_config
     openvswitch_bridge
     openvswitch_port
+    opsgenie
     pagerduty
     pagerduty_escalation_policy
     pagerduty_schedule
     pagerduty_service
     pagerduty_user
+    panos
     pcs
     pecl
     pdbedit
@@ -245,7 +255,6 @@ state modules
     stateconf
     status
     statuspage
-    stormpath_account
     supervisord
     svn
     sysctl
@@ -261,6 +270,7 @@ state modules
     tuned
     uptime
     user
+    vagrant
     vault
     vbox_guest
     victorops

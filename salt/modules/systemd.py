@@ -10,8 +10,8 @@ Provides the service module for systemd
     *'service.start' is not available*), see :ref:`here
     <module-provider-override>`.
 '''
-# Import python libs
-from __future__ import absolute_import
+# Import Python libs
+from __future__ import absolute_import, print_function, unicode_literals
 import errno
 import glob
 import logging
@@ -20,10 +20,15 @@ import fnmatch
 import re
 import shlex
 
-# Import 3rd-party libs
+# Import Salt libs
+import salt.utils.files
 import salt.utils.itertools
+import salt.utils.path
+import salt.utils.stringutils
 import salt.utils.systemd
 from salt.exceptions import CommandExecutionError
+
+# Import 3rd-party libs
 from salt.ext import six
 
 log = logging.getLogger(__name__)
@@ -66,7 +71,7 @@ def _canonical_unit_name(name):
     of the valid suffixes as a service.
     '''
     if not isinstance(name, six.string_types):
-        name = str(name)
+        name = six.text_type(name)
     if any(name.endswith(suffix) for suffix in VALID_UNIT_TYPES):
         return name
     return '%s.service' % name
@@ -152,8 +157,9 @@ def _default_runlevel():
     # Try to get the "main" default.  If this fails, throw up our
     # hands and just guess "2", because things are horribly broken
     try:
-        with salt.utils.fopen('/etc/init/rc-sysinit.conf') as fp_:
+        with salt.utils.files.fopen('/etc/init/rc-sysinit.conf') as fp_:
             for line in fp_:
+                line = salt.utils.stringutils.to_unicode(line)
                 if line.startswith('env DEFAULT_RUNLEVEL'):
                     runlevel = line.split('=')[-1].strip()
     except Exception:
@@ -161,8 +167,9 @@ def _default_runlevel():
 
     # Look for an optional "legacy" override in /etc/inittab
     try:
-        with salt.utils.fopen('/etc/inittab') as fp_:
+        with salt.utils.files.fopen('/etc/inittab') as fp_:
             for line in fp_:
+                line = salt.utils.stringutils.to_unicode(line)
                 if not line.startswith('#') and 'initdefault' in line:
                     runlevel = line.split(':')[1]
     except Exception:
@@ -173,8 +180,9 @@ def _default_runlevel():
     try:
         valid_strings = set(
             ('0', '1', '2', '3', '4', '5', '6', 's', 'S', '-s', 'single'))
-        with salt.utils.fopen('/proc/cmdline') as fp_:
+        with salt.utils.files.fopen('/proc/cmdline') as fp_:
             for line in fp_:
+                line = salt.utils.stringutils.to_unicode(line)
                 for arg in line.strip().split():
                     if arg in valid_strings:
                         runlevel = arg
@@ -253,7 +261,7 @@ def _get_service_exec():
     if contextkey not in __context__:
         executables = ('update-rc.d', 'chkconfig')
         for executable in executables:
-            service_exec = salt.utils.which(executable)
+            service_exec = salt.utils.path.which(executable)
             if service_exec is not None:
                 break
         else:

@@ -2,7 +2,7 @@
 '''
 Module for managing Solaris logadm based log rotations.
 '''
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
 
 # Import python libs
 import logging
@@ -13,8 +13,11 @@ except ImportError:
     from pipes import quote as _quote_args
 
 # Import salt libs
-import salt.utils
+from salt.ext import six
+import salt.utils.args
 import salt.utils.decorators as decorators
+import salt.utils.files
+import salt.utils.stringutils
 
 log = logging.getLogger(__name__)
 default_conf = '/etc/logadm.conf'
@@ -69,9 +72,9 @@ def _parse_conf(conf_file=default_conf):
     Parse a logadm configuration file.
     '''
     ret = {}
-    with salt.utils.fopen(conf_file, 'r') as ifile:
+    with salt.utils.files.fopen(conf_file, 'r') as ifile:
         for line in ifile:
-            line = line.strip()
+            line = salt.utils.stringutils.to_unicode(line).strip()
             if not line:
                 continue
             if line.startswith('#'):
@@ -153,8 +156,6 @@ def show_conf(conf_file=default_conf, name=None):
     '''
     Show configuration
 
-    .. versionchanged:: Nitrogen
-
     conf_file : string
         path to logadm.conf, defaults to /etc/logadm.conf
     name : string
@@ -182,7 +183,7 @@ def list_conf(conf_file=default_conf, log_file=None, include_unset=False):
     '''
     Show parsed configuration
 
-    .. versionadded:: Nitrogen
+    .. versionadded:: Oxygen
 
     conf_file : string
         path to logadm.conf, defaults to /etc/logadm.conf
@@ -221,7 +222,7 @@ def show_args():
     '''
     Show which arguments map to which flags and options.
 
-    .. versionadded:: Nitrogen
+    .. versionadded:: Oxygen
 
     CLI Example:
 
@@ -241,8 +242,6 @@ def show_args():
 def rotate(name, pattern=None, conf_file=default_conf, **kwargs):
     '''
     Set up pattern for logging.
-
-    .. versionchanged:: Nitrogen
 
     name : string
         alias for entryname
@@ -271,7 +270,7 @@ def rotate(name, pattern=None, conf_file=default_conf, **kwargs):
 
     '''
     ## cleanup kwargs
-    kwargs = salt.utils.clean_kwargs(**kwargs)
+    kwargs = salt.utils.args.clean_kwargs(**kwargs)
 
     ## inject name into kwargs
     if 'entryname' not in kwargs and name and not name.startswith('/'):
@@ -286,7 +285,7 @@ def rotate(name, pattern=None, conf_file=default_conf, **kwargs):
             kwargs['log_file'] = name
 
     ## build command
-    log.debug("logadm.rotate - kwargs: {}".format(kwargs))
+    log.debug("logadm.rotate - kwargs: %s", kwargs)
     command = "logadm -f {}".format(conf_file)
     for arg, val in kwargs.items():
         if arg in option_toggles.values() and val:
@@ -298,10 +297,10 @@ def rotate(name, pattern=None, conf_file=default_conf, **kwargs):
             command = "{} {} {}".format(
                 command,
                 _arg2opt(arg),
-                _quote_args(str(val))
+                _quote_args(six.text_type(val))
             )
         elif arg != 'log_file':
-            log.warning("Unknown argument {}, don't know how to map this!".format(arg))
+            log.warning("Unknown argument %s, don't know how to map this!", arg)
     if 'log_file' in kwargs:
         # NOTE: except from ```man logadm```
         #   If no log file name is provided on a logadm command line, the entry
@@ -316,7 +315,7 @@ def rotate(name, pattern=None, conf_file=default_conf, **kwargs):
         else:
             command = "{} {}".format(command, _quote_args(kwargs['log_file']))
 
-    log.debug("logadm.rotate - command: {}".format(command))
+    log.debug("logadm.rotate - command: %s", command)
     result = __salt__['cmd.run_all'](command, python_shell=False)
     if result['retcode'] != 0:
         return dict(Error='Failed in adding log', Output=result['stderr'])

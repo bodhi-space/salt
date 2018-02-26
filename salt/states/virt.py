@@ -11,12 +11,11 @@ for the generation and signing of certificates for systems running libvirt:
     libvirt_keys:
       virt.keys
 '''
-from __future__ import absolute_import
 
-# Import python libs
+# Import Python libs
+from __future__ import absolute_import, print_function, unicode_literals
 import fnmatch
 import os
-from salt.ext import six
 
 try:
     import libvirt  # pylint: disable=import-error
@@ -24,9 +23,14 @@ try:
 except ImportError:
     HAS_LIBVIRT = False
 
-# Import salt libs
-import salt.utils
+# Import Salt libs
+import salt.utils.args
+import salt.utils.files
+import salt.utils.stringutils
 from salt.exceptions import CommandExecutionError
+
+# Import 3rd-party libs
+from salt.ext import six
 
 __virtualname__ = 'virt'
 
@@ -114,8 +118,8 @@ def keys(name, basepath='/etc/pki', **kwargs):
         if not os.path.exists(os.path.dirname(paths[key])):
             os.makedirs(os.path.dirname(paths[key]))
         if os.path.isfile(paths[key]):
-            with salt.utils.fopen(paths[key], 'r') as fp_:
-                if fp_.read() != pillar[p_key]:
+            with salt.utils.files.fopen(paths[key], 'r') as fp_:
+                if salt.utils.stringutils.to_unicode(fp_.read()) != pillar[p_key]:
                     ret['changes'][key] = 'update'
         else:
             ret['changes'][key] = 'new'
@@ -128,8 +132,12 @@ def keys(name, basepath='/etc/pki', **kwargs):
         ret['changes'] = {}
     else:
         for key in ret['changes']:
-            with salt.utils.fopen(paths[key], 'w+') as fp_:
-                fp_.write(pillar['libvirt.{0}.pem'.format(key)])
+            with salt.utils.files.fopen(paths[key], 'w+') as fp_:
+                fp_.write(
+                    salt.utils.stringutils.to_str(
+                        pillar['libvirt.{0}.pem'.format(key)]
+                    )
+                )
 
         ret['comment'] = 'Updated libvirt certs and keys'
 
@@ -157,7 +165,7 @@ def _virt_call(domain, function, section, comment, **kwargs):
                 response = response['name']
             changed_domains.append({'domain': domain, function: response})
         except libvirt.libvirtError as err:
-            ignored_domains.append({'domain': domain, 'issue': str(err)})
+            ignored_domains.append({'domain': domain, 'issue': six.text_type(err)})
     if not changed_domains:
         ret['result'] = False
         ret['comment'] = 'No changes had happened'
@@ -227,7 +235,7 @@ def running(name, **kwargs):
            'comment': '{0} is running'.format(name)
            }
 
-    kwargs = salt.utils.clean_kwargs(**kwargs)
+    kwargs = salt.utils.args.clean_kwargs(**kwargs)
     cpu = kwargs.pop('cpu', False)
     mem = kwargs.pop('mem', False)
     image = kwargs.pop('image', False)
@@ -240,7 +248,7 @@ def running(name, **kwargs):
                 ret['changes'][name] = 'Domain started'
                 ret['comment'] = 'Domain {0} started'.format(name)
         except CommandExecutionError:
-            kwargs = salt.utils.clean_kwargs(**kwargs)
+            kwargs = salt.utils.args.clean_kwargs(**kwargs)
             __salt__['virt.init'](name, cpu=cpu, mem=mem, image=image, **kwargs)
             ret['changes'][name] = 'Domain defined and started'
             ret['comment'] = 'Domain {0} defined and started'.format(name)
@@ -361,7 +369,7 @@ def reverted(name, snapshot=None, cleanup=False):
                     result = {'domain': domain, 'current': result['reverted'], 'deleted': result['deleted']}
                 except CommandExecutionError as err:
                     if len(domains) > 1:
-                        ignored_domains.append({'domain': domain, 'issue': str(err)})
+                        ignored_domains.append({'domain': domain, 'issue': six.text_type(err)})
                 if len(domains) > 1:
                     if result:
                         ret['changes']['reverted'].append(result)
@@ -377,8 +385,8 @@ def reverted(name, snapshot=None, cleanup=False):
             if not ret['changes']['reverted']:
                 ret['changes'].pop('reverted')
     except libvirt.libvirtError as err:
-        ret['comment'] = str(err)
+        ret['comment'] = six.text_type(err)
     except CommandExecutionError as err:
-        ret['comment'] = str(err)
+        ret['comment'] = six.text_type(err)
 
     return ret

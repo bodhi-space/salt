@@ -72,6 +72,7 @@ MOCK_MODULES = [
     'Crypto.Signature',
     'Crypto.Signature.PKCS1_v1_5',
     'M2Crypto',
+    'msgpack',
     'yaml',
     'yaml.constructor',
     'yaml.nodes',
@@ -157,6 +158,7 @@ MOCK_MODULES = [
     'jnpr.junos.utils.sw',
     'dns',
     'dns.resolver',
+    'keyring',
     'netaddr',
     'netaddr.IPAddress',
     'netaddr.core',
@@ -198,6 +200,8 @@ def mock_decorator_with_params(*oargs, **okwargs):
 
 # Define a fake version attribute for the following libs.
 sys.modules['libcloud'].__version__ = '0.0.0'
+sys.modules['msgpack'].version = (1, 0, 0)
+sys.modules['psutil'].version_info = (3, 0, 0)
 sys.modules['pymongo'].version = '0.0.0'
 sys.modules['ntsecuritycon'].STANDARD_RIGHTS_REQUIRED = 0
 sys.modules['ntsecuritycon'].SYNCHRONIZE = 0
@@ -244,9 +248,9 @@ on_saltstack = 'SALT_ON_SALTSTACK' in os.environ
 project = 'Salt'
 
 version = salt.version.__version__
-latest_release = '2016.11.5'  # latest release
-previous_release = '2016.3.6'  # latest release from previous branch
-previous_release_dir = '2016.3'  # path on web server for previous branch
+latest_release = '2017.7.3'  # latest release
+previous_release = '2016.11.9'  # latest release from previous branch
+previous_release_dir = '2016.11'  # path on web server for previous branch
 next_release = ''  # next release
 next_release_dir = ''  # path on web server for next release branch
 
@@ -319,11 +323,21 @@ rst_prolog = """\
 .. _`salt-packagers`: https://groups.google.com/forum/#!forum/salt-packagers
 .. |windownload| raw:: html
 
-     <p>x86: <a href="https://repo.saltstack.com/windows/Salt-Minion-{release}-x86-Setup.exe"><strong>Salt-Minion-{release}-x86-Setup.exe</strong></a>
-      | <a href="https://repo.saltstack.com/windows/Salt-Minion-{release}-x86-Setup.exe.md5"><strong>md5</strong></a></p>
+     <p>Python2 x86: <a
+     href="https://repo.saltstack.com/windows/Salt-Minion-{release}-Py2-x86-Setup.exe"><strong>Salt-Minion-{release}-x86-Setup.exe</strong></a>
+      | <a href="https://repo.saltstack.com/windows/Salt-Minion-{release}-Py2-x86-Setup.exe.md5"><strong>md5</strong></a></p>
 
-     <p>AMD64: <a href="https://repo.saltstack.com/windows/Salt-Minion-{release}-AMD64-Setup.exe"><strong>Salt-Minion-{release}-AMD64-Setup.exe</strong></a>
-      | <a href="https://repo.saltstack.com/windows/Salt-Minion-{release}-AMD64-Setup.exe.md5"><strong>md5</strong></a></p>
+     <p>Python2 AMD64: <a
+     href="https://repo.saltstack.com/windows/Salt-Minion-{release}-Py2-AMD64-Setup.exe"><strong>Salt-Minion-{release}-AMD64-Setup.exe</strong></a>
+      | <a href="https://repo.saltstack.com/windows/Salt-Minion-{release}-Py2-AMD64-Setup.exe.md5"><strong>md5</strong></a></p>
+     <p>Python3 x86: <a
+     href="https://repo.saltstack.com/windows/Salt-Minion-{release}-Py3-x86-Setup.exe"><strong>Salt-Minion-{release}-x86-Setup.exe</strong></a>
+      | <a href="https://repo.saltstack.com/windows/Salt-Minion-{release}-Py3-x86-Setup.exe.md5"><strong>md5</strong></a></p>
+
+     <p>Python3 AMD64: <a
+     href="https://repo.saltstack.com/windows/Salt-Minion-{release}-Py3-AMD64-Setup.exe"><strong>Salt-Minion-{release}-AMD64-Setup.exe</strong></a>
+      | <a href="https://repo.saltstack.com/windows/Salt-Minion-{release}-Py3-AMD64-Setup.exe.md5"><strong>md5</strong></a></p>
+
 
 .. |osxdownload| raw:: html
 

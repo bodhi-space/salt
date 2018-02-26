@@ -9,15 +9,17 @@ Module to provide redis functionality to Salt
 
 .. code-block:: yaml
 
-    redis.host: 'localhost'
+    redis.host: 'salt'
     redis.port: 6379
     redis.db: 0
     redis.password: None
 '''
 
 # Import Python libs
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals, print_function
 from salt.ext.six.moves import zip
+from salt.ext import six
+from datetime import datetime
 
 # Import third party libs
 try:
@@ -513,8 +515,14 @@ def lastsave(host=None, port=None, db=None, password=None):
 
         salt '*' redis.lastsave
     '''
+    # Use of %s to get the timestamp is not supported by Python. The reason it
+    # works is because it's passed to the system strftime which may not support
+    # it. See: https://stackoverflow.com/a/11743262
     server = _connect(host, port, db, password)
-    return int(server.lastsave().strftime("%s"))
+    if six.PY2:
+        return int((server.lastsave() - datetime(1970, 1, 1)).total_seconds())
+    else:
+        return int(server.lastsave().timestamp())
 
 
 def llen(key, host=None, port=None, db=None, password=None):

@@ -96,12 +96,13 @@ When using ``htdigest`` the ``^realm`` must be set:
 '''
 
 # Import python libs
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
 import logging
 import os
 
 # Import salt utils
-import salt.utils
+import salt.utils.files
+import salt.utils.versions
 
 log = logging.getLogger(__name__)
 
@@ -135,8 +136,8 @@ def _get_file_auth_config():
         return False
 
     if not os.path.exists(config['filename']):
-        log.error('salt.auth.file: The configured external_auth:file:^filename ({0})'
-                  'does not exist on the filesystem'.format(config['filename']))
+        log.error('salt.auth.file: The configured external_auth:file:^filename (%s)'
+                  'does not exist on the filesystem', config['filename'])
         return False
 
     config['username_field'] = int(config['username_field'])
@@ -158,21 +159,21 @@ def _text(username, password, **kwargs):
     username_field = kwargs['username_field']-1
     password_field = kwargs['password_field']-1
 
-    with salt.utils.fopen(filename, 'r') as pwfile:
+    with salt.utils.files.fopen(filename, 'r') as pwfile:
         for line in pwfile.readlines():
             fields = line.strip().split(field_separator)
 
             try:
                 this_username = fields[username_field]
             except IndexError:
-                log.error('salt.auth.file: username field ({0}) does not exist '
-                          'in file {1}'.format(username_field, filename))
+                log.error('salt.auth.file: username field (%s) does not exist '
+                          'in file %s', username_field, filename)
                 return False
             try:
                 this_password = fields[password_field]
             except IndexError:
-                log.error('salt.auth.file: password field ({0}) does not exist '
-                          'in file {1}'.format(password_field, filename))
+                log.error('salt.auth.file: password field (%s) does not exist '
+                          'in file %s', password_field, filename)
                 return False
 
             if this_username == username:
@@ -199,7 +200,7 @@ def _htpasswd(username, password, **kwargs):
     pwfile = HtpasswdFile(kwargs['filename'])
 
     # passlib below version 1.6 uses 'verify' function instead of 'check_password'
-    if salt.utils.version_cmp(kwargs['passlib_version'], '1.6') < 0:
+    if salt.utils.versions.version_cmp(kwargs['passlib_version'], '1.6') < 0:
         return pwfile.verify(username, password)
     else:
         return pwfile.check_password(username, password)
@@ -221,7 +222,7 @@ def _htdigest(username, password, **kwargs):
     pwfile = HtdigestFile(kwargs['filename'])
 
     # passlib below version 1.6 uses 'verify' function instead of 'check_password'
-    if salt.utils.version_cmp(kwargs['passlib_version'], '1.6') < 0:
+    if salt.utils.versions.version_cmp(kwargs['passlib_version'], '1.6') < 0:
         return pwfile.verify(username, realm, password)
     else:
         return pwfile.check_password(username, realm, password)
@@ -239,7 +240,7 @@ def _htfile(username, password, **kwargs):
         kwargs['passlib_version'] = passlib.__version__
     except ImportError:
         log.error('salt.auth.file: The python-passlib library is required '
-                  'for {0} filetype'.format(filetype))
+                  'for %s filetype', filetype)
         return False
 
     if filetype == 'htdigest':

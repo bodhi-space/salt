@@ -39,13 +39,13 @@ that can be re-imported into Python.
 '''
 
 # import python libs
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
 import os
-import json
 
 # Import salt libs
-import salt.utils
-from salt.utils import simple_types_filter
+import salt.utils.data
+import salt.utils.files
+import salt.utils.json
 
 
 def save(name, filter=False):
@@ -78,9 +78,9 @@ def save(name, filter=False):
         fn_ = os.path.join(tgt_dir, name)
     if not os.path.isdir(tgt_dir):
         os.makedirs(tgt_dir)
-    with salt.utils.fopen(fn_, 'w+') as fp_:
+    with salt.utils.files.fopen(fn_, 'w+') as fp_:
         if filter is True:
-            fp_.write(json.dumps(simple_types_filter(__reg__)))
+            salt.utils.json.dump(salt.utils.data.simple_types_filter(__reg__), fp_)
         else:
-            fp_.write(json.dumps(__reg__))
+            salt.utils.json.dump(__reg__, fp_)
     return ret

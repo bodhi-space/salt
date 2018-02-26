@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
+'''
+Custom YAML loading in Salt
+'''
+
 # Import python libs
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
 import warnings
 
 # Import third party libs
-import yaml
+import re
+import yaml  # pylint: disable=blacklisted-import
 from yaml.nodes import MappingNode, SequenceNode
 from yaml.constructor import ConstructorError
 try:
@@ -13,11 +18,7 @@ try:
 except Exception:
     pass
 
-# This function is safe and needs to stay as yaml.load. The load function
-# accepts a custom loader, and every time this function is used in Salt
-# the custom loader defined below is used. This should be altered though to
-# not require the custom loader to be explicitly added.
-load = yaml.load  # pylint: disable=C0103
+__all__ = ['SaltYamlSafeLoader', 'load', 'safe_load']
 
 
 class DuplicateKeyWarning(RuntimeWarning):
@@ -36,18 +37,21 @@ class SaltYamlSafeLoader(yaml.SafeLoader, object):
     to make things like sls file more intuitive.
     '''
     def __init__(self, stream, dictclass=dict):
-        yaml.SafeLoader.__init__(self, stream)
+        super(SaltYamlSafeLoader, self).__init__(stream)
         if dictclass is not dict:
             # then assume ordered dict and use it for both !map and !omap
             self.add_constructor(
-                u'tag:yaml.org,2002:map',
+                'tag:yaml.org,2002:map',
                 type(self).construct_yaml_map)
             self.add_constructor(
-                u'tag:yaml.org,2002:omap',
+                'tag:yaml.org,2002:omap',
                 type(self).construct_yaml_map)
-            self.add_constructor(
-                u'tag:yaml.org,2002:python/unicode',
-                type(self).construct_unicode)
+        self.add_constructor(
+            'tag:yaml.org,2002:python/unicode',
+            type(self).construct_unicode)
+        self.add_constructor(
+            'tag:yaml.org,2002:timestamp',
+            type(self).construct_scalar)
         self.dictclass = dictclass
 
     def construct_yaml_map(self, node):
@@ -101,6 +105,11 @@ class SaltYamlSafeLoader(yaml.SafeLoader, object):
                 # an empty string. Change it to '0'.
                 if node.value == '':
                     node.value = '0'
+        elif node.tag == 'tag:yaml.org,2002:str':
+            # If any string comes in as a quoted unicode literal, eval it into
+            # the proper unicode string type.
+            if re.match(r'^u([\'"]).+\1$', node.value, flags=re.IGNORECASE):
+                node.value = eval(node.value, {}, {})  # pylint: disable=W0123
         return super(SaltYamlSafeLoader, self).construct_scalar(node)
 
     def flatten_mapping(self, node):
@@ -109,7 +118,7 @@ class SaltYamlSafeLoader(yaml.SafeLoader, object):
         while index < len(node.value):
             key_node, value_node = node.value[index]
 
-            if key_node.tag == u'tag:yaml.org,2002:merge':
+            if key_node.tag == 'tag:yaml.org,2002:merge':
                 del node.value[index]
                 if isinstance(value_node, MappingNode):
                     self.flatten_mapping(value_node)
@@ -132,8 +141,8 @@ class SaltYamlSafeLoader(yaml.SafeLoader, object):
                                            node.start_mark,
                                            "expected a mapping or list of mappings for merging, but found {0}".format(value_node.id),
                                            value_node.start_mark)
-            elif key_node.tag == u'tag:yaml.org,2002:value':
-                key_node.tag = u'tag:yaml.org,2002:str'
+            elif key_node.tag == 'tag:yaml.org,2002:value':
+                key_node.tag = 'tag:yaml.org,2002:str'
                 index += 1
             else:
                 index += 1
@@ -143,3 +152,16 @@ class SaltYamlSafeLoader(yaml.SafeLoader, object):
             mergeable_items = [x for x in merge if x[0].value not in existing_nodes]
 
             node.value = mergeable_items + node.value
+
+
+def load(stream, Loader=SaltYamlSafeLoader):
+    return yaml.load(stream, Loader=Loader)
+
+
+def safe_load(stream, Loader=SaltYamlSafeLoader):
+    '''
+    .. versionadded:: Oxygen
+
+    Helper function which automagically uses our custom loader.
+    '''
+    return yaml.load(stream, Loader=Loader)

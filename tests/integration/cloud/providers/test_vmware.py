@@ -4,32 +4,20 @@
 '''
 
 # Import Python Libs
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
 import os
-import random
-import string
 
 # Import Salt Libs
-from salt.config import cloud_providers_config
+from salt.config import cloud_providers_config, cloud_config
+from salt.ext import six
 
 # Import Salt Testing LIbs
 from tests.support.case import ShellCase
 from tests.support.paths import FILES
-from tests.support.helpers import expensiveTest
-from salt.ext.six.moves import range
-
-
-def __random_name(size=6):
-    '''
-    Generates a radom cloud instance name
-    '''
-    return 'CLOUD-TEST-' + ''.join(
-        random.choice(string.ascii_uppercase + string.digits)
-        for x in range(size)
-    )
+from tests.support.helpers import expensiveTest, generate_random_name
 
 # Create the cloud instance name to be used throughout the tests
-INSTANCE_NAME = __random_name()
+INSTANCE_NAME = generate_random_name('CLOUD-TEST-')
 PROVIDER_NAME = 'vmware'
 TIMEOUT = 500
 
@@ -90,12 +78,25 @@ class VMWareTest(ShellCase):
         Tests creating and deleting an instance on vmware and installing salt
         '''
         # create the instance
+        profile = os.path.join(
+                FILES,
+                'conf',
+                'cloud.profiles.d',
+                PROVIDER_NAME + '.conf'
+            )
+
+        profile_config = cloud_config(profile)
+        disk_datastore = profile_config['vmware-test']['devices']['disk']['Hard disk 2']['datastore']
+
         instance = self.run_cloud('-p vmware-test {0}'.format(INSTANCE_NAME), timeout=TIMEOUT)
         ret_str = '{0}:'.format(INSTANCE_NAME)
+        disk_datastore_str = '                [{0}] {1}/Hard disk 2-flat.vmdk'.format(disk_datastore, INSTANCE_NAME)
 
         # check if instance returned with salt installed
         try:
             self.assertIn(ret_str, instance)
+            self.assertIn(disk_datastore_str, instance,
+                          msg='Hard Disk 2 did not use the Datastore {0} '.format(disk_datastore))
         except AssertionError:
             self.run_cloud('-d {0} --assume-yes'.format(INSTANCE_NAME), timeout=TIMEOUT)
             raise
@@ -105,7 +106,7 @@ class VMWareTest(ShellCase):
         ret_str = '{0}:\', \'            True'.format(INSTANCE_NAME)
 
         # check if deletion was performed appropriately
-        self.assertIn(ret_str, str(delete))
+        self.assertIn(ret_str, six.text_type(delete))
 
     def test_snapshot(self):
         '''
@@ -129,13 +130,13 @@ class VMWareTest(ShellCase):
                                          timeout=TIMEOUT)
         s_ret_str = 'Snapshot created successfully'
 
-        self.assertIn(s_ret_str, str(create_snapshot))
+        self.assertIn(s_ret_str, six.text_type(create_snapshot))
 
         # delete the instance
         delete = self.run_cloud('-d {0} --assume-yes'.format(INSTANCE_NAME), timeout=TIMEOUT)
         ret_str = '{0}:\', \'            True'.format(INSTANCE_NAME)
 
-        self.assertIn(ret_str, str(delete))
+        self.assertIn(ret_str, six.text_type(delete))
 
     def tearDown(self):
         '''

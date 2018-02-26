@@ -4,7 +4,7 @@
 '''
 
 # Import Python Libs
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals, print_function
 import uuid
 
 # Import Salt Testing Libs
@@ -59,6 +59,9 @@ class IptablesTestCase(TestCase, LoaderModuleMockMixin):
             # Should properly negate "not"-prefixed values
             self.assertEqual(iptables.build_rule(**{'if': 'not eth0'}),
                              '! -i eth0')
+
+            self.assertEqual(iptables.build_rule(**{'proto': 'tcp', 'syn': '!'}),
+                            '-p tcp ! --syn')
 
             self.assertEqual(iptables.build_rule(dports=[80, 443], proto='tcp'),
                              '-p tcp -m multiport --dports 80,443')

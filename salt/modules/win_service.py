@@ -5,13 +5,15 @@ Windows Service module.
 .. versionchanged:: 2016.11.0 - Rewritten to use PyWin32
 '''
 
-# Import python libs
-from __future__ import absolute_import
-import salt.utils
-import time
-import logging
+# Import Python libs
+from __future__ import absolute_import, unicode_literals, print_function
 import fnmatch
+import logging
 import re
+import time
+
+# Import Salt libs
+import salt.utils.platform
 from salt.exceptions import CommandExecutionError
 
 # Import 3rd party libs
@@ -93,7 +95,7 @@ def __virtual__():
     '''
     Only works on Windows systems with PyWin32 installed
     '''
-    if not salt.utils.is_windows():
+    if not salt.utils.platform.is_windows():
         return False, 'Module win_service: module only works on Windows.'
 
     if not HAS_WIN32_MODS:
@@ -446,8 +448,9 @@ def stop(name):
     try:
         win32serviceutil.StopService(name)
     except pywintypes.error as exc:
-        raise CommandExecutionError(
-            'Failed To Stop {0}: {1}'.format(name, exc[2]))
+        if exc[0] != 1062:
+            raise CommandExecutionError(
+                'Failed To Stop {0}: {1}'.format(name, exc[2]))
 
     attempts = 0
     while info(name)['Status'] in ['Running', 'Stop Pending'] \
@@ -599,7 +602,8 @@ def modify(name,
            account_name=None,
            account_password=None,
            run_interactive=None):
-    r'''
+    # pylint: disable=anomalous-backslash-in-string
+    '''
     Modify a service's parameters. Changes will not be made for parameters that
     are not passed.
 
@@ -661,7 +665,7 @@ def modify(name,
 
         account_name (str): The name of the account under which the service
             should run. For ``own`` type services this should be in the
-            ``domain\username`` format. The following are examples of valid
+            ``domain\\username`` format. The following are examples of valid
             built-in service accounts:
 
             - NT Authority\\LocalService
@@ -685,7 +689,9 @@ def modify(name,
     .. code-block:: bash
 
         salt '*' service.modify spooler start_type=disabled
+
     '''
+    # pylint: enable=anomalous-backslash-in-string
     # https://msdn.microsoft.com/en-us/library/windows/desktop/ms681987(v=vs.85).aspx
     # https://msdn.microsoft.com/en-us/library/windows/desktop/ms681988(v-vs.85).aspx
     handle_scm = win32service.OpenSCManager(
@@ -811,12 +817,26 @@ def modify(name,
     return changes
 
 
-def enable(name, **kwargs):
+def enable(name, start_type='auto', start_delayed=False, **kwargs):
     '''
     Enable the named service to start at boot
 
     Args:
         name (str): The name of the service to enable.
+
+        start_type (str): Specifies the service start type. Valid options are as
+            follows:
+
+            - boot: Device driver that is loaded by the boot loader
+            - system: Device driver that is started during kernel initialization
+            - auto: Service that automatically starts
+            - manual: Service must be started manually
+            - disabled: Service cannot be started
+
+        start_delayed (bool): Set the service to Auto(Delayed Start). Only valid
+            if the start_type is set to ``Auto``. If service_type is not passed,
+            but the service is already set to ``Auto``, then the flag will be
+            set.
 
     Returns:
         bool: ``True`` if successful, ``False`` otherwise
@@ -827,8 +847,13 @@ def enable(name, **kwargs):
 
         salt '*' service.enable <service name>
     '''
-    modify(name, start_type='Auto')
-    return info(name)['StartType'] == 'Auto'
+
+    modify(name, start_type=start_type, start_delayed=start_delayed)
+    svcstat = info(name)
+    if start_type.lower() == 'auto':
+        return svcstat['StartType'].lower() == start_type.lower() and svcstat['StartTypeDelayed'] == start_delayed
+    else:
+        return svcstat['StartType'].lower() == start_type.lower()
 
 
 def disable(name, **kwargs):
@@ -904,7 +929,7 @@ def create(name,
            account_password=None,
            run_interactive=False,
            **kwargs):
-    r'''
+    '''
     Create the named service.
 
     .. versionadded:: 2015.8.0
@@ -966,7 +991,7 @@ def create(name,
 
         account_name (str): The name of the account under which the service
             should run. For ``own`` type services this should be in the
-            ``domain\username`` format. The following are examples of valid
+            ``domain\\username`` format. The following are examples of valid
             built-in service accounts:
 
             - NT Authority\\LocalService
