@@ -402,10 +402,12 @@ install -Dpm 0644 pkg/salt-master.service %{buildroot}%{_unitdir}/salt-master.se
 install -Dpm 0644 pkg/salt-minion.service %{buildroot}%{_unitdir}/salt-minion.service
 install -Dpm 0644 pkg/salt-syndic.service %{buildroot}%{_unitdir}/salt-syndic.service
 install -Dpm 0644 pkg/salt-api.service    %{buildroot}%{_unitdir}/salt-api.service
+%if 0%{?suse_version}
 ln -s service %{buildroot}%{_sbindir}/rcsalt-master
 ln -s service %{buildroot}%{_sbindir}/rcsalt-syndic
 ln -s service %{buildroot}%{_sbindir}/rcsalt-minion
 ln -s service %{buildroot}%{_sbindir}/rcsalt-api
+%endif
 install -Dpm 644 %{S:2}                   %{buildroot}/usr/lib/tmpfiles.d/salt.conf
 %else
 mkdir -p %{buildroot}%{_initddir}
@@ -421,7 +423,9 @@ ln -sf %{_initddir}/salt-minion %{buildroot}%{_sbindir}/rcsalt-minion
 ln -sf %{_initddir}/salt-api %{buildroot}%{_sbindir}/rcsalt-api
 %else
 install -Dpm 0755 pkg/rpm/salt-master %{buildroot}%{_initddir}/salt-master
+install -Dpm 0755 pkg/rpm/salt-syndic %{buildroot}%{_initddir}/salt-syndic
 install -Dpm 0755 pkg/rpm/salt-minion %{buildroot}%{_initddir}/salt-minion
+install -Dpm 0755 pkg/rpm/salt-api %{buildroot}%{_initddir}/salt-api
 %endif
 %endif
 
@@ -635,7 +639,9 @@ systemd-tmpfiles --create /usr/lib/tmpfiles.d/salt.conf || true
 %files api
 %defattr(-,root,root)
 %{_bindir}/salt-api
+%if 0%{?suse_version}
 %{_sbindir}/rcsalt-api
+%endif
 %if %{with systemd}
 %{_unitdir}/salt-api.service
 %else
@@ -663,7 +669,9 @@ systemd-tmpfiles --create /usr/lib/tmpfiles.d/salt.conf || true
 %defattr(-,root,root)
 %{_bindir}/salt-syndic
 %{_mandir}/man1/salt-syndic.1.gz
+%if 0%{?suse_version}
 %{_sbindir}/rcsalt-syndic
+%endif
 %if %{with systemd}
 %{_unitdir}/salt-syndic.service
 %else
@@ -680,7 +688,9 @@ systemd-tmpfiles --create /usr/lib/tmpfiles.d/salt.conf || true
 %dir               %attr(0750, root, root) %{_sysconfdir}/salt/minion.d/
 %dir               %attr(0750, root, root) %{_sysconfdir}/salt/pki/minion/
 %dir               %attr(0750, root, root) %{_localstatedir}/cache/salt/minion/
+%if 0%{?suse_version}
 %{_sbindir}/rcsalt-minion
+%endif
 %if %{with systemd}
 %{_unitdir}/salt-minion.service
 %else
@@ -705,7 +715,9 @@ systemd-tmpfiles --create /usr/lib/tmpfiles.d/salt.conf || true
 %{_mandir}/man1/salt-run.1.gz
 %{_mandir}/man7/salt.7.gz
 %config(noreplace) %{_sysconfdir}/sysconfig/SuSEfirewall2.d/services/salt
+%if 0%{?suse_version}
 %{_sbindir}/rcsalt-master
+%endif
 %if %{with systemd}
 %{_unitdir}/salt-master.service
 %else
