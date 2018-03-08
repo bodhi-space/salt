@@ -36,7 +36,6 @@ License:        Apache-2.0
 Group:          System/Monitoring
 Url:            http://saltstack.org/
 Source0:        %{name}-%{version}.tar.bz2
-#Source2:        salt-tmpfiles.d
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 BuildRequires:  logrotate
 BuildRequires:  python27
@@ -411,6 +410,7 @@ install -Dpm 644 %{S:2}                   %{buildroot}/usr/lib/tmpfiles.d/salt.c
 %else
 mkdir -p %{buildroot}%{_initddir}
 ## install init scripts
+%if 0%{?suse_version}
 install -Dpm 0755 pkg/suse/salt-master %{buildroot}%{_initddir}/salt-master
 install -Dpm 0755 pkg/suse/salt-syndic %{buildroot}%{_initddir}/salt-syndic
 install -Dpm 0755 pkg/suse/salt-minion %{buildroot}%{_initddir}/salt-minion
@@ -419,6 +419,10 @@ ln -sf %{_initddir}/salt-master %{buildroot}%{_sbindir}/rcsalt-master
 ln -sf %{_initddir}/salt-syndic %{buildroot}%{_sbindir}/rcsalt-syndic
 ln -sf %{_initddir}/salt-minion %{buildroot}%{_sbindir}/rcsalt-minion
 ln -sf %{_initddir}/salt-api %{buildroot}%{_sbindir}/rcsalt-api
+%else
+install -Dpm 0755 pkg/rpm/salt-master %{buildroot}%{_initddir}/salt-master
+install -Dpm 0755 pkg/rpm/salt-minion %{buildroot}%{_initddir}/salt-minion
+%endif
 %endif
 
 #
