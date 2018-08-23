@@ -94,6 +94,21 @@ def topic_present(name, subscriptions=None, attributes=None,
             - Protocol: sqs
               Endpoint: arn:aws:sqs:us-west-2:123456789012:MyQueue
 
+        Additional attributes which may be set on a subscription are:
+        - DeliveryPolicy
+        - FilterPolicy
+        - RawMessageDelivery
+
+        If provided, they should be passed as key/value pairs within the same dictionaries.
+        E.g.
+
+        .. code-block:: yaml
+
+            subscriptions:
+            - Protocol: sqs
+              Endpoint: arn:aws:sqs:us-west-2:123456789012:MyQueue
+              RawMessageDelivery: True
+
     attributes
         Dictionary of attributes to set on the SNS topic
         Valid attribute keys are:
@@ -142,10 +157,10 @@ def topic_present(name, subscriptions=None, attributes=None,
     ### Update any explicitly defined attributes
     want_attrs = attributes if attributes else {}
     # Freshen these in case we just created it above
-    current_attrs = __salt__['boto3_sns.get_topic_attributes'](TopicArn, region=region, key=key,
-                                                               keyid=keyid, profile=profile)
+    curr_attrs = __salt__['boto3_sns.get_topic_attributes'](TopicArn, region=region, key=key,
+                                                            keyid=keyid, profile=profile)
     for attr in ['DisplayName', 'Policy', 'DeliveryPolicy']:
-        curr_val = current_attrs.get(attr)
+        curr_val = curr_attrs.get(attr)
         want_val = want_attrs.get(attr)
         # Some get default values if not set, so it's not safe to enforce absense if they're
         # not provided at all.  This implies that if you want to clear a value, you must explicitly
@@ -170,51 +185,38 @@ def topic_present(name, subscriptions=None, attributes=None,
             return ret
 
     ### Add / remove subscriptions
+    mutable_attrs = ('DeliveryPolicy', 'FilterPolicy', 'RawMessageDelivery')
     want_subs = subscriptions if subscriptions else []
-    obfuscated_subs = []
-    current_subs = current.get('Subscriptions', [])
-    current_slim = [{'Protocol': s['Protocol'], 'Endpoint': s['Endpoint']} for s in current_subs]
+    want_subs = [{k: v for k, v in c.items() if k in ('Protocol', 'Endpoint') or k in mutable_attrs}
+                 for c in want_subs]
+    curr_subs = current.get('Subscriptions', [])
     subscribe = []
     unsubscribe = []
+    want_obfuscated = []
     for sub in want_subs:
-        # If the subscription contains inline digest auth, AWS will obfuscate the password with
-        # '****'.  Thus we need to do the same with ours to permit 1-to-1 comparison.
+        # If the subscription contains inline digest auth, AWS will obfuscate the password
+        # with '****'.  Thus we need to do the same with ours to permit 1-to-1 comparison.
         # Example: https://user:****@my.endpoiint.com/foo/bar
         endpoint = sub['Endpoint']
-        matches = re.search(r'https://(?P<user>\w+):(?P<pass>\w+)@', endpoint)
+        matches = re.search(r'http[s]?://(?P<user>\w+):(?P<pass>\w+)@', endpoint)
         if matches is not None:
             sub['Endpoint'] = endpoint.replace(':' + matches.groupdict()['pass'], ':****')
-        obfuscated_subs += [copy.deepcopy(sub)]
-        # Now set it back...
-        if sub not in current_slim:
-            sub['Endpoint'] = endpoint
+        want_obfuscated += [{'Protocol': sub['Protocol'], 'Endpoint': sub['Endpoint']}]
+        if sub not in curr_subs:
+            sub['obfuscated'] = sub['Endpoint']
+            sub['Endpoint'] = endpoint   # Set it back to the unobfuscated value.
             subscribe += [sub]
-    for sub in current_subs:
-        minimal = {'Protocol': sub['Protocol'], 'Endpoint': sub['Endpoint']}
-        if minimal not in obfuscated_subs:
+    for sub in curr_subs:
+        if {'Protocol': sub['Protocol'], 'Endpoint': sub['Endpoint']} not in want_obfuscated:
             unsubscribe += [sub['SubscriptionArn']]
     for sub in subscribe:
-        prot = sub['Protocol']
-        endp = sub['Endpoint']
-        if __opts__['test']:
-            msg = ' Subscription {0}:{1} would be set on topic {2}.'.format(prot, endp, TopicArn)
-            ret['comment'] += msg
-            ret['result'] = None
-            continue
-        subbed = __salt__['boto3_sns.subscribe'](TopicArn, prot, endp, region=region, key=key,
-                                                 keyid=keyid, profile=profile)
-        if subbed:
-            msg = ' Subscription {0}:{1} set on topic {2}.'.format(prot, endp, TopicArn)
-            ret['comment'] += msg
+        ret = _create_or_update_subscription(ret, sub, curr_subs, mutable_attrs, TopicArn,
+                                                region, key, keyid, profile)
+        if ret.pop('something_changed', False) is True:
             something_changed = True
-        else:
-            msg = ' Failed to set subscription {0}:{1} on topic {2}.'.format(prot, endp, TopicArn)
-            ret['comment'] += msg
-            ret['result'] = False
-            return ret
     for sub in unsubscribe:
         if __opts__['test']:
-            msg = '  Subscription {0} would be removed from topic {1}.'.format(sub, TopicArn)
+            msg = '  Subscription {} would be removed from topic {}.'.format(sub, TopicArn)
             ret['comment'] += msg
             ret['result'] = None
             continue
@@ -231,6 +233,69 @@ def topic_present(name, subscriptions=None, attributes=None,
     if something_changed:
         ret['changes']['old'] = current
         ret['changes']['new'] = __salt__['boto3_sns.describe_topic'](name, region, key, keyid, profile)
+    return ret
+
+
+def _create_or_update_subscription(ret, sub, curr_subs, attrs, topic, region, key, keyid, profile):
+    curr_slim = [{'Protocol': c['Protocol'], 'Endpoint': c['Endpoint']} for c in curr_subs]
+    prot = sub['Protocol']
+    endp = sub['Endpoint']
+    obfu = sub['obfuscated']
+    curr_attrs = {}
+    sub_arn = None
+    for c_sub in curr_subs:
+        if c_sub['Protocol'] == sub['Protocol'] and c_sub['Endpoint'] == sub['obfuscated']:
+            sub_arn = c_sub['SubscriptionArn']
+            curr_attrs = c_sub
+            break
+    if not sub_arn:
+        if __opts__['test']:
+            msg = ' Subscription {}:{} would be set on topic {}.'.format(prot, obfu, topic)
+            ret['comment'] += msg
+            ret['result'] = None
+            return ret
+        args = {'TopicArn': topic,
+                'Protocol': sub['Protocol'],
+                'Endpoint': sub['Endpoint'],
+                'Attributes': {k: sub[k] for k in attrs if k in sub},
+                'ReturnSubscriptionArn': True,
+                'region': region,
+                'key': key,
+                'keyid': keyid,
+                'profile': profile
+        }
+        subbed = __salt__['boto3_sns.subscribe'](**args)
+        if subbed:
+            msg = ' Subscription {}:{} set on topic {}.'.format(prot, obfu, topic)
+            ret['comment'] += msg
+            ret['something_changed'] = True
+        else:
+            msg = ' Failed to set subscription {}:{} on topic {}.'.format(prot, obfu, topic)
+            ret['comment'] += msg
+            ret['result'] = False
+        return ret
+    # Set requested subscriptions attributes if their current values differ...
+    for attr in attrs:
+        if attr in sub and curr_attrs.get(attr) != sub[attr]:
+            if __opts__['test']:
+                msg = ' Attribute {} would be set on subscription {}:{} for topic {}.'.format(
+                        attr, prot, obfu, topic)
+                ret['comment'] += msg
+                ret['result'] = None
+            else:
+                args = {'SubscriptionArn': sub_arn, 'AttributeName': attr, 'AttributeValue': sub[attr],
+                        'region': region, 'key': key, 'keyid': keyid, 'profile': profile}
+                if __salt__['boto3_sns.set_subscription_attributes'](**args):
+                    msg = ' Attribute {} set on subscription {}:{} for topic {}.'.format(
+                            attr, prot, obfu, topic)
+                    ret['comment'] += msg
+                    ret['something_changed'] = True
+                else:
+                    msg = ' Failed to set attribute {} on subscription {}:{} for topic {}.'.format(
+                            attr, prot, obfu, topic)
+                    ret['comment'] += msg
+                    ret['result'] = False
+                    return ret
     return ret
 
 
