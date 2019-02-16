@@ -86,11 +86,11 @@ def __virtual__():
     Only load if boto libraries exist and if boto libraries are greater than
     a given version.
     '''
-    # the boto_lambda execution module relies on the connect_to_region() method
-    # which was added in boto 2.8.0
-    # https://github.com/boto/boto/commit/33ac26b416fbb48a60602542b4ce15dcc7029f12
+    # boto_s3_bucket exec module requires boto3 1.2.6 and botocore 1.3.23 for
+    # idempotent ACL operations via the fix in https://github.com/boto/boto3/issues/390
     return salt.utils.versions.check_boto_reqs(
-        boto3_ver='1.2.1'
+        boto3_ver='1.2.6',
+        botocore_ver='1.3.23'
     )
 
 
