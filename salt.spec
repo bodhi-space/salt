@@ -709,6 +709,7 @@ systemd-tmpfiles --create /usr/lib/tmpfiles.d/salt.conf || true
 %{_bindir}/salt-cp
 %{_bindir}/salt-key
 %{_bindir}/salt-run
+%{_bindir}/salt-support
 %{_mandir}/man1/salt-master.1.gz
 %{_mandir}/man1/salt-cp.1.gz
 %{_mandir}/man1/salt-key.1.gz
