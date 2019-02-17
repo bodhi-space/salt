@@ -80,8 +80,6 @@ import time
 import sys
 
 # Import Salt libs
-import salt.utils.boto3
-from salt.utils import exactly_one
 from salt.utils.versions import LooseVersion
 from salt.exceptions import SaltInvocationError, CommandExecutionError
 
@@ -126,7 +124,7 @@ def __init__(opts):
         __utils__['boto3.assign_funcs'](__name__, 'emr',
                   get_conn_funcname='_get_conn',
                   cache_id_funcname='_cache_id',
-                  exactly_one_funcname=None)
+                  exactly_one_funcname='_exactly_one')
 
 
 def _collect_results(func, info_node, args, marker='Marker'):
